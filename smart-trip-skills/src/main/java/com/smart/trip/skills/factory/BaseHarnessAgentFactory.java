@@ -15,11 +15,11 @@ import io.agentscope.core.tool.Toolkit;
  */
 public abstract class BaseHarnessAgentFactory {
 
-    /** 主 LLM 模型名（硅基流动：deepseek-v4-pro）。 */
-    public static final String DEFAULT_PRIMARY_MODEL = "deepseek-v4-pro";
+    /** 主 LLM 模型名（硅基流动官方：deepseek-ai/DeepSeek-V4-Pro）。 */
+    public static final String DEFAULT_PRIMARY_MODEL = "deepseek-ai/DeepSeek-V4-Pro";
 
-    /** 降级 LLM 模型名（阿里云百炼：qwen3.8flash）。 */
-    public static final String DEFAULT_FALLBACK_MODEL = "qwen3.8flash";
+    /** 降级 LLM 模型名（硅基流动官方：Qwen/Qwen3.8-27B）。 */
+    public static final String DEFAULT_FALLBACK_MODEL = "Qwen/Qwen3.8-27B";
 
     /** 硅基流动 OpenAI 兼容端点。
      *
