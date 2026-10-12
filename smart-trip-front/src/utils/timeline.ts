@@ -1,6 +1,8 @@
 import type { Route, TripDay } from '@/models/trip-plan'
 
 export interface TimelineEntry {
+  /** 景点 ID（如 SH027），用于支持人工删除/微调 */
+  id?: string
   /** 格式如 "09:00" 或 "09:00 - 10:30" */
   time: string
   /** 抵达时间 "09:00" */
@@ -97,6 +99,7 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
     const transit = outgoing(spot.name)
 
     entries.push({
+      id: spot.id,
       time: `${formatMinutesToTime(spotArriveMinutes)} - ${formatMinutesToTime(spotLeaveMinutes)}`,
       arriveTime: formatMinutesToTime(spotArriveMinutes),
       leaveTime: formatMinutesToTime(spotLeaveMinutes),

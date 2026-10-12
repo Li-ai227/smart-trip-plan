@@ -46,6 +46,18 @@ function onCardClick(item: PlanSummary) {
   }
 }
 
+async function onDeletePlan(item: PlanSummary) {
+  if (!confirm(`确定要删除前往「${item.destination}」的行程方案吗？此操作不可撤销。`)) {
+    return
+  }
+  try {
+    await store.removePlan(item.planId)
+  } catch (e) {
+    alert((e as Error).message || '删除失败，请稍后重试')
+  }
+}
+
+
 function formatDate(dateStr: string, days: number) {
   return `${dateStr} 起 · ${days} 天`
 }
@@ -107,9 +119,18 @@ function goPage(p: number) {
       >
         <div class="card-header">
           <span class="destination">{{ item.destination }}</span>
-          <span :class="['badge', statusInfo(item.status).cls]">
-            {{ statusInfo(item.status).text }}
-          </span>
+          <div class="card-header-right">
+            <span :class="['badge', statusInfo(item.status).cls]">
+              {{ statusInfo(item.status).text }}
+            </span>
+            <button
+              class="btn-delete-plan"
+              title="删除此方案"
+              @click.stop="onDeletePlan(item)"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
 
         <div class="card-body">
@@ -260,6 +281,30 @@ function goPage(p: number) {
   align-items: center;
   margin-bottom: 14px;
 }
+
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-delete-plan {
+  background: none;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-plan:hover {
+  opacity: 1;
+  background: #ffebee;
+  transform: scale(1.15);
+}
+
 
 .destination {
   font-size: 20px;

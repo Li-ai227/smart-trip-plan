@@ -245,6 +245,15 @@ public class TripPlanFacade {
         return Map.of("success", false, "message", "记忆清除失败，请稍后重试");
     }
 
+    /** 删除历史方案（检查归属权并清理缓存与索引）。 */
+    public Map<String, Object> deletePlan(String planId, long userId) {
+        checkOwnership(planId, userId);
+        planCacheService.deletePlan(planId, String.valueOf(userId));
+        LOG.log(System.Logger.Level.INFO, "方案已删除: planId={0}, userId={1}", planId, userId);
+        return Map.of("success", true, "message", "方案已删除");
+    }
+
+
     private void checkOwnership(String planId, long userId) {
         if (!planCacheService.exists(planId)) {
             throw new BaseException(ErrorCode.NOT_FOUND, "规划不存在: " + planId);
@@ -457,34 +466,16 @@ public class TripPlanFacade {
     }
 
     static String computeFingerprint(TripPlanRequest request) {
-        String json = JsonUtils.toJson(request);
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(json.getBytes(StandardCharsets.UTF_8));
+                    .digest(JsonUtils.toJson(request).getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 
-    // ========== 历史方案（读写委托 PlanSummaryUpdater，控制本文件行数） ==========
-
-    /**
-     * 查询用户历史方案列表（C-017 T-6：Redis-first → MySQL-fallback + 筛选扩展 DECISION-1/2）。
-     *
-     * <p>策略：先尝试 Redis（内存筛选），若摘要有缺失（部分过期）且 MySQL 可用则降级 MySQL；
-     * 若 MySQL 亦不可用，返回 Redis 能解析的部分结果（优雅降级）。</p>
-     *
-     * @param userId      当前登录用户 ID
-     * @param page        页码（1-based）
-     * @param pageSize    每页条数
-     * @param keyword     目的地关键词（可选）
-     * @param travelStyle 旅行风格筛选（可选）
-     * @param planStatus  终态筛选（confirmed/failed，可选）
-     * @param startDate   起始日期下限（含，可选）
-     * @param endDate     起始日期上限（含，可选）
-     * @return 分页历史列表
-     */
+    /** 查询用户历史方案列表（委托 PlanSummaryUpdater）。 */
     public Map<String, Object> getUserPlanHistory(long userId, int page, int pageSize,
                                                   String keyword, TravelStyle travelStyle,
                                                   String planStatus, LocalDate startDate,

@@ -110,3 +110,7 @@ export const get = <T>(url: string, options: FetchOptionType = {}) =>
 
 export const post = <T>(url: string, options: FetchOptionType = {}) =>
   baseFetch<T>(url, { ...options, method: 'POST' })
+
+export const del = <T>(url: string, options: FetchOptionType = {}) =>
+  baseFetch<T>(url, { ...options, method: 'DELETE' })
+

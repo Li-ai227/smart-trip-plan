@@ -71,6 +71,37 @@ const onAction = async (action: InterveneAction) => {
   }
 }
 
+const onRemoveAttraction = async (payload: { dayIndex: number; attractionId: string }) => {
+  const currentPlan = store.detail?.plan
+  const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
+  const spot = currentDay?.attractions.find((a) => a.id === payload.attractionId)
+  const spotName = spot?.name || '选中的景点'
+
+  if (!confirm(`确定要从第 ${payload.dayIndex} 天行程中移除「${spotName}」吗？`)) {
+    return
+  }
+
+  try {
+    // 1. 调用后端 HITL MODIFY 接口
+    await store.intervene('MODIFY', { removeAttraction: payload.attractionId })
+
+    // 2. 本地响应式状态即时同步（移除该景点，重算当日开销和总费用）
+    if (currentDay && spot) {
+      currentDay.attractions = currentDay.attractions.filter((a) => a.id !== payload.attractionId)
+      if (currentDay.dailyCost && spot.ticket) {
+        currentDay.dailyCost = Math.max(0, currentDay.dailyCost - spot.ticket)
+      }
+      if (currentPlan.totalCost && spot.ticket) {
+        currentPlan.totalCost = Math.max(0, currentPlan.totalCost - spot.ticket)
+      }
+    }
+  } catch (err: unknown) {
+    const msg = (err as Error)?.message || '移除失败，请重试'
+    alert(msg)
+  }
+}
+
+
 const onPlanConfirmed = () => {
   // CONFIRM 后跳转到规划进度页，前端通过轮询获取进度
   router.push({ name: 'planning', params: { planId }, query: { t: Date.now() } })
@@ -119,6 +150,7 @@ watch(() => store.detail?.status, (newStatus) => {
         :title="title"
         @select="activeIndex = $event"
         @open-confirm="isHitlModalOpen = true"
+        @remove-attraction="onRemoveAttraction"
       />
     </div>
 

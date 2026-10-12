@@ -42,5 +42,23 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  return { items, total, page, pageSize, keyword, loading, error, fetchHistory }
+  async function removePlan(planId: string) {
+    if (useMock) {
+      items.value = items.value.filter((i) => i.planId !== planId)
+      total.value = Math.max(0, total.value - 1)
+      return
+    }
+
+    try {
+      await api.deleteTripPlan(planId)
+      items.value = items.value.filter((i) => i.planId !== planId)
+      total.value = Math.max(0, total.value - 1)
+    } catch (e) {
+      error.value = (e as Error).message
+      throw e
+    }
+  }
+
+  return { items, total, page, pageSize, keyword, loading, error, fetchHistory, removePlan }
 })
+

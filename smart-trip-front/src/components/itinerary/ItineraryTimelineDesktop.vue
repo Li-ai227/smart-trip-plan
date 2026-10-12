@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', index: number): void
   (e: 'open-confirm'): void
+  (e: 'remove-attraction', payload: { dayIndex: number; attractionId: string }): void
 }>()
 
 const store = useTripPlanStore()
@@ -68,7 +69,17 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
         <div v-for="(e, i) in entries" :key="i" class="timeline-item">
           <div class="item-time">{{ e.time }}</div>
           <div class="item-content">
-            <div class="item-type" :class="e.kind">{{ e.kind === 'spot' ? '🏛️ 景点' : '🍽️ 美食' }}</div>
+            <div class="item-top-row">
+              <div class="item-type" :class="e.kind">{{ e.kind === 'spot' ? '🏛️ 景点' : '🍽️ 美食' }}</div>
+              <button
+                v-if="e.kind === 'spot' && e.id"
+                class="btn-remove-spot"
+                title="从今日行程中移除此景点"
+                @click.stop="emit('remove-attraction', { dayIndex: activeIndex, attractionId: e.id! })"
+              >
+                ✕ 移除
+              </button>
+            </div>
             <h3 class="item-name">{{ e.name }}</h3>
 
             <!-- 景点详情 -->
@@ -258,6 +269,13 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   margin-bottom: 16px;
 }
 
+.item-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .item-type {
   display: inline-block;
   padding: 6px 12px;
@@ -266,7 +284,25 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   font-size: 12px;
   font-weight: 700;
   color: #666;
-  margin-bottom: 12px;
+}
+
+.btn-remove-spot {
+  background: #fff0f2;
+  color: #ff2442;
+  border: 1px solid #ffd1d8;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-remove-spot:hover {
+  background: #ff2442;
+  color: #fff;
+  border-color: #ff2442;
+  transform: scale(1.03);
 }
 
 .item-type.spot {

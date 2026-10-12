@@ -229,6 +229,26 @@ public class PlanCacheService {
         return count != null ? count : 0L;
     }
 
+    /**
+     * 删除方案的所有相关 Redis 键并从用户索引中移除。
+     *
+     * @param planId 方案 ID
+     * @param userId 用户 ID
+     */
+    public void deletePlan(String planId, String userId) {
+        LOG.log(System.Logger.Level.INFO, "deletePlan: planId={0}, userId={1}", planId, userId);
+        List<String> keysToDelete = List.of(
+                CacheKeys.planKey(planId),
+                CacheKeys.planStatusKey(planId),
+                planUserIdKey(planId),
+                CacheKeys.planSummaryKey(planId),
+                CacheKeys.planDraftKey(planId),
+                CacheKeys.planKey(planId) + CacheConstants.SEPARATOR + "feedback"
+        );
+        redisTemplate.delete(keysToDelete);
+        redisTemplate.opsForZSet().remove(CacheKeys.userPlansKey(userId), planId);
+    }
+
     private static String planUserIdKey(String planId) {
         return CacheKeys.planKey(planId) + CacheConstants.SEPARATOR + CacheConstants.USER_ID_SUFFIX;
     }

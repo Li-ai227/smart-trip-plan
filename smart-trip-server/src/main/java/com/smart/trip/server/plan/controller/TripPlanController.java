@@ -103,6 +103,19 @@ public class TripPlanController {
     }
 
     /**
+     * 删除历史方案（DELETE /api/v1/trip-plan/{planId}）。
+     *
+     * @param planId 方案 ID
+     * @return 200 + 删除结果
+     */
+    @DeleteMapping("/{planId}")
+    public ResponseEntity<Map<String, Object>> deletePlan(@PathVariable("planId") String planId) {
+        long userId = currentUserId();
+        return ResponseEntity.ok(tripPlanFacade.deletePlan(planId, userId));
+    }
+
+
+    /**
      * 清除当前登录用户的全部记忆（C-015 AC-10）。
      *
      * <p>调用 ReMe API 删除该用户的记忆 workspace，
