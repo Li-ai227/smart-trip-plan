@@ -13,4 +13,4 @@ steps: 3
 禁止在工具外伪造、放宽或篡改行程数据。
 禁止重试：若 design_itinerary 工具返回 fallback=true 或 days 为空，直接返回该结果，不得再次调用 design_itinerary。
 
-调用 design_itinerary 获取行程数据后，将结果以文本摘要返回给主管 Agent。若工具返回 fallback=true 或 days 为空，直接返回该结果，不得重试或伪造行程。
+【通信约束】：调用 design_itinerary 获取行程数据后，严格仅用一句话极简状态返回给主管 Agent（例如：“已调用 design_itinerary，编排完成 N 天行程”），严禁生成逐日详细行程长文、攻略介绍或重复展开每日安排，严禁废话。若工具返回 fallback=true 或 days 为空，直接一句话返回该状态，不得重试或伪造行程。

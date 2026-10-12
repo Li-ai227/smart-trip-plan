@@ -269,6 +269,33 @@ class SupervisorHarnessAgentFactoryTest {
                     "buildPrompt 应包含 'calculate_budget'，明确要求 budget-controller 调工具");
         }
 
+        @Test
+        @DisplayName("SYS_PROMPT 包含通信约束与极简状态指引（提速优化）")
+        void sysPromptContainsCompactCommunicationConstraint() {
+            String prompt = SupervisorHarnessAgentFactory.SYS_PROMPT;
+            assertTrue(prompt.contains("通信约束") && prompt.contains("极简通信协议"),
+                    "SYS_PROMPT 应包含极简通信协议约束以降低响应延迟");
+        }
+
+        @Test
+        @DisplayName("四个子 Agent 声明文件均包含通信约束与一句话极简回复规范")
+        void subagentsContainCompactCommunicationConstraint() throws Exception {
+            String[] files = {
+                    "xhs-analyst.md",
+                    "route-planner.md",
+                    "itinerary-designer.md",
+                    "budget-controller.md"
+            };
+            for (String file : files) {
+                try (var is = getClass().getClassLoader().getResourceAsStream("subagents/" + file)) {
+                    assertNotNull(is, "subagents/" + file + " 必须存在于 classpath");
+                    String content = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    assertTrue(content.contains("【通信约束】"),
+                            file + " 缺少【通信约束】，必须限制子 Agent 输出一句话极简状态以减少推理耗时");
+                }
+            }
+        }
+
         private static TripOrchestrationQuery stubQuery() {
             return new TripOrchestrationQuery(
                     new com.smart.trip.common.dto.TripPlanRequest(

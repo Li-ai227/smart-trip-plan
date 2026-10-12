@@ -155,7 +155,7 @@ class FileBasedXHSNoteSourceIntegrationTest {
         return Stream.of(
                 Arguments.of("云南", java.util.Set.of("大理", "昆明", "丽江")),
                 Arguments.of("想去云南玩", java.util.Set.of("大理", "昆明", "丽江")),
-                Arguments.of("四川", java.util.Set.of("成都", "九寨沟"))
+                Arguments.of("四川", java.util.Set.of("成都", "九寨沟", "乐山"))
         );
     }
 

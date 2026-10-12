@@ -73,6 +73,7 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
                     + "⑤ finalize_native_trip_plan — 收口，产出最终 TripPlanResult\n"
                     + "任一子 Agent 返回降级结果时继续下一步，不得中断。"
                     + "业务不变量由各子 Agent 工具强制，你仅负责传递上下文与收口。\n"
+                    + "【通信约束】各子 Agent 遵循极简通信协议，仅汇报一句话状态摘要，真实数据已由工具回写。你收到状态后无需展开分析，立即推进下一步。\n"
                     + "【严禁】禁止在 native 路中主动调用 orchestrate_trip——该工具仅由系统在无 LLM key 或 native 完全失败时自动调用，"
                     + "主动调用会导致编排被重复执行两次，产生错误结果。\n"
                     + "【严禁】若四个子 Agent 已全部完成（artifact 齐全），只调用 finalize_native_trip_plan 收口，禁止再调 orchestrate_trip。\n"
@@ -485,7 +486,7 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
                 + "第 2 步路线结果作为 route_result_json 参数传入，编排行程\n"
                 + "4. agent_spawn budget-controller — 必须调用 calculate_budget 工具核算费用，传入第 3 步行程结果\n"
                 + "5. finalize_native_trip_plan — 收口，产出最终 TripPlanResult\n"
-                + "任一步返回降级结果时继续下一步，最终确保产出完整行程方案。";
+                + "各子 Agent 遵循极简通信仅回复一句话状态，任一步返回降级结果时继续下一步，最终确保产出完整行程方案。";
         return Msg.builder().role(MsgRole.USER).textContent(text).build();
     }
 }
