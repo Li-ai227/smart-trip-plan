@@ -14,21 +14,19 @@ import io.agentscope.core.model.OpenAIChatModel;
  */
 public final class LlmModelFactory {
 
-    /** 主 LLM 模型名（ADR-009：DeepSeek 官方）。 */
-    public static final String DEFAULT_PRIMARY_MODEL = "deepseek-v4-flash"; // xopqwen36v35b
+    /** 主 LLM 模型名（硅基流动：deepseek-ai/DeepSeek-V3 兼容 deepseek-v4-pro）。 */
+    public static final String DEFAULT_PRIMARY_MODEL = "deepseek-ai/DeepSeek-V3";
 
-    /** 降级 LLM 模型名（技术栈铁律：DashScope qwen3-max）。 */
-    public static final String DEFAULT_FALLBACK_MODEL = "qwen3-max";
+    /** 降级 LLM 模型名（阿里云百炼：qwen-turbo / qwen-plus 兼容 qwen3.8flash）。 */
+    public static final String DEFAULT_FALLBACK_MODEL = "qwen-turbo";
 
-    /** DeepSeek 官方 OpenAI 兼容端点（base_url）。
+    /** 硅基流动 OpenAI 兼容端点（base_url）。
      *
-     * <p>⚠️ 2026-07-29 FIX：AgentScope OpenAIChatModel 的 {@code buildApiUrl()} 始终在
-     * {@code baseUrl} 后追加 {@code /v1/chat/completions}（{@code CHAT_COMPLETIONS_ENDPOINT}）。
-     * 若 baseUrl 路径以 {@code /v1} 结尾（匹配 {@code VERSION_PATTERN}），框架会自动去掉 endpoint
-     * 中的 {@code /v1/} 前缀，避免路径重复。故此处只设到 {@code /v1}，最终 URL 为：
-     * {@code https://token.sensenova.cn/v1/chat/completions}。</p>
+     * <p>AgentScope OpenAIChatModel 的 {@code buildApiUrl()} 在结尾追加 {@code /chat/completions}。
+     * 若 baseUrl 路径以 {@code /v1} 结尾，框架自动去掉 endpoint 中的 {@code /v1/} 前缀，
+     * 最终请求 URL 为 {@code https://api.siliconflow.cn/v1/chat/completions}。</p>
      */
-    public static final String DEFAULT_DEEPSEEK_BASE_URL = "https://token.sensenova.cn/v1"; //  https://api.deepseek.com  https://maas-api.cn-huabei-1.xf-yun.com/v2
+    public static final String DEFAULT_DEEPSEEK_BASE_URL = "https://api.siliconflow.cn/v1";
 
     /** 主 LLM 密钥环境变量（DeepSeek 官方）。 */
     public static final String ENV_DEEPSEEK_KEY = "DEEPSEEK_API_KEY";
