@@ -15,9 +15,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', index: number): void
   (e: 'open-confirm'): void
-  (e: 'edit-plan'): void
-  (e: 'remove-attraction', payload: { dayIndex: number; attractionId: string }): void
-  (e: 'remove-meal', payload: { dayIndex: number; mealType: string }): void
 }>()
 
 const store = useTripPlanStore()
@@ -36,7 +33,6 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
     <div class="timeline-header">
       <h2 class="timeline-title">{{ title ?? `${store.request.destination} ${store.request.days} 日行程` }}</h2>
       <div class="header-right">
-        <!-- 草案态：显示确认方案 -->
         <button
           v-if="draft"
           class="btn-open-confirm"
@@ -44,15 +40,6 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
         >
           <span class="btn-icon">📋</span>
           <span>确认方案</span>
-        </button>
-        <!-- 已完成态：显示修改行程按钮（解锁进入待确认态） -->
-        <button
-          v-else
-          class="btn-edit-plan"
-          @click="emit('edit-plan')"
-        >
-          <span class="btn-icon">✏️</span>
-          <span>修改行程</span>
         </button>
         <div class="status-badge" :class="{ draft: draft }">
           {{ draft ? '草案待确认' : '已完成' }}
@@ -81,26 +68,7 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
         <div v-for="(e, i) in entries" :key="i" class="timeline-item">
           <div class="item-time">{{ e.time }}</div>
           <div class="item-content">
-            <div class="item-top-row">
-              <div class="item-type" :class="e.kind">{{ e.kind === 'spot' ? '🏛️ 景点' : '🍽️ 美食' }}</div>
-              <!-- 仅在草案/编辑态下显示移除按钮 -->
-              <button
-                v-if="draft && e.kind === 'spot' && e.id"
-                class="btn-remove-spot"
-                title="从今日行程中移除此景点"
-                @click.stop="emit('remove-attraction', { dayIndex: activeIndex, attractionId: e.id! })"
-              >
-                ✕ 移除
-              </button>
-              <button
-                v-else-if="draft && e.kind === 'meal' && e.id"
-                class="btn-remove-spot btn-remove-meal"
-                title="不在此处安排正餐（移除此餐）"
-                @click.stop="emit('remove-meal', { dayIndex: activeIndex, mealType: e.id.replace('meal-', '') })"
-              >
-                ✕ 移除此餐
-              </button>
-            </div>
+            <div class="item-type" :class="e.kind">{{ e.kind === 'spot' ? '🏛️ 景点' : '🍽️ 美食' }}</div>
             <h3 class="item-name">{{ e.name }}</h3>
 
             <!-- 景点详情 -->
@@ -208,33 +176,6 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   transform: translateY(0);
 }
 
-.btn-edit-plan {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff;
-  color: #333;
-  border: 1.5px solid #d9d9d9;
-  border-radius: 20px;
-  padding: 8px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
-}
-
-.btn-edit-plan:hover {
-  border-color: #ff2442;
-  color: #ff2442;
-  background: #fff5f6;
-  transform: translateY(-1px);
-}
-
-.btn-edit-plan:active {
-  transform: translateY(0);
-}
-
 .btn-icon {
   font-size: 15px;
 }
@@ -317,13 +258,6 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   margin-bottom: 16px;
 }
 
-.item-top-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
 .item-type {
   display: inline-block;
   padding: 6px 12px;
@@ -332,37 +266,7 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   font-size: 12px;
   font-weight: 700;
   color: #666;
-}
-
-.btn-remove-spot {
-  background: #fff0f2;
-  color: #ff2442;
-  border: 1px solid #ffd1d8;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-remove-spot:hover {
-  background: #ff2442;
-  color: #fff;
-  border-color: #ff2442;
-  transform: scale(1.03);
-}
-
-.btn-remove-meal {
-  color: #ff8a00;
-  border-color: #ffc27a;
-  background: #fff8f0;
-}
-
-.btn-remove-meal:hover {
-  background: #ff8a00;
-  color: #fff;
-  border-color: #ff8a00;
+  margin-bottom: 12px;
 }
 
 .item-type.spot {

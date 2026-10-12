@@ -1,8 +1,6 @@
 import type { Route, TripDay } from '@/models/trip-plan'
 
 export interface TimelineEntry {
-  /** 景点 ID（如 SH027），用于支持人工删除/微调 */
-  id?: string
   /** 格式如 "09:00" 或 "09:00 - 10:30" */
   time: string
   /** 抵达时间 "09:00" */
@@ -80,7 +78,6 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
       const lunchArrive = currentClockMinutes
       const lunchLeave = lunchArrive + 60
       entries.push({
-        id: `meal-${lunch.mealType}`,
         time: `${formatMinutesToTime(lunchArrive)} - ${formatMinutesToTime(lunchLeave)}`,
         arriveTime: formatMinutesToTime(lunchArrive),
         leaveTime: formatMinutesToTime(lunchLeave),
@@ -100,7 +97,6 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
     const transit = outgoing(spot.name)
 
     entries.push({
-      id: spot.id,
       time: `${formatMinutesToTime(spotArriveMinutes)} - ${formatMinutesToTime(spotLeaveMinutes)}`,
       arriveTime: formatMinutesToTime(spotArriveMinutes),
       leaveTime: formatMinutesToTime(spotLeaveMinutes),
@@ -121,7 +117,6 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
       const lunchArrive = currentClockMinutes
       const lunchLeave = lunchArrive + 60
       entries.push({
-        id: `meal-${lunch.mealType}`,
         time: `${formatMinutesToTime(lunchArrive)} - ${formatMinutesToTime(lunchLeave)}`,
         arriveTime: formatMinutesToTime(lunchArrive),
         leaveTime: formatMinutesToTime(lunchLeave),
@@ -145,7 +140,6 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
     const lunchArrive = Math.max(12 * 60, currentClockMinutes)
     const lunchLeave = lunchArrive + 60
     entries.push({
-      id: `meal-${lunch.mealType}`,
       time: `${formatMinutesToTime(lunchArrive)} - ${formatMinutesToTime(lunchLeave)}`,
       arriveTime: formatMinutesToTime(lunchArrive),
       leaveTime: formatMinutesToTime(lunchLeave),
@@ -163,7 +157,6 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
     const dinnerArrive = Math.max(18 * 60, currentClockMinutes)
     const dinnerLeave = dinnerArrive + 60
     entries.push({
-      id: `meal-${dinner.mealType}`,
       time: `${formatMinutesToTime(dinnerArrive)} - ${formatMinutesToTime(dinnerLeave)}`,
       arriveTime: formatMinutesToTime(dinnerArrive),
       leaveTime: formatMinutesToTime(dinnerLeave),

@@ -29,12 +29,7 @@ const isPlanReview = computed(() => store.detail?.status === 'plan_review')
 const planDraft = computed(() => store.detail?.planDraft ?? (useMock ? mockPlanReview.planDraft : undefined))
 const planReviewLoading = computed(() => store.loading)
 const planReviewError = computed(() => store.error ?? '')
-const isHitlModalOpen = ref(false)
-
-// 初始若后端确需 HITL 介入，自动开启
-watch(() => detail.value?.requiresHumanIntervention, (val) => {
-  if (val) isHitlModalOpen.value = true
-}, { immediate: true })
+const showHitl = computed(() => !!detail.value?.requiresHumanIntervention || detail.value?.status === 'review')
 
 const activeIndex = ref(1)
 
@@ -44,84 +39,10 @@ const title = computed(() => {
 })
 
 const onAction = async (action: InterveneAction) => {
-  isHitlModalOpen.value = false
-  if (action === 'MODIFY') {
-    // MODIFY：关闭弹窗，留在当前页进入草案微调编辑模式
-    if (store.detail) {
-      store.detail.status = 'review'
-      store.detail.requiresHumanIntervention = false
-    }
-    return
-  }
-
-  try {
-    await store.intervene(action)
-    if (action === 'CONFIRM') {
-      if (store.detail) {
-        store.detail.status = 'confirmed'
-        store.detail.requiresHumanIntervention = false
-      }
-      router.push({ name: 'result', params: { planId } })
-    } else if (action === 'REJECT') {
-      router.push({ name: 'planning', params: { planId } })
-    }
-  } catch (err: unknown) {
-    const msg = (err as Error)?.message || '操作失败，请重试'
-    alert(msg)
-  }
-}
-
-const onEditPlan = () => {
-  // 切换回 review（草案待确认）编辑模式，允许用户直接在时间轴增删微调，不弹出确认框
-  if (store.detail) {
-    store.detail.status = 'review'
-    store.detail.requiresHumanIntervention = false
-  }
-  isHitlModalOpen.value = false
-}
-
-const onRemoveAttraction = (payload: { dayIndex: number; attractionId: string }) => {
-  const currentPlan = store.detail?.plan
-  const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
-  const spot = currentDay?.attractions.find((a) => a.id === payload.attractionId)
-  const spotName = spot?.name || '选中的景点'
-
-  if (!confirm(`确定要从第 ${payload.dayIndex} 天行程中移除「${spotName}」吗？`)) {
-    return
-  }
-
-  if (currentDay && spot) {
-    currentDay.attractions = currentDay.attractions.filter((a) => a.id !== payload.attractionId)
-    if (currentDay.dailyCost && spot.ticket) {
-      currentDay.dailyCost = Math.max(0, currentDay.dailyCost - spot.ticket)
-    }
-    if (currentPlan.totalCost && spot.ticket) {
-      currentPlan.totalCost = Math.max(0, currentPlan.totalCost - spot.ticket)
-    }
-  }
-}
-
-const onRemoveMeal = (payload: { dayIndex: number; mealType: string }) => {
-  const currentPlan = store.detail?.plan
-  const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
-  const meal = currentDay?.meals?.find((m) => m.mealType === payload.mealType)
-  const mealName = meal?.restaurantName ? `${meal.mealType === 'lunch' ? '午餐' : '晚餐'}（${meal.restaurantName}）` : (payload.mealType === 'lunch' ? '午餐' : '晚餐')
-
-  if (!confirm(`确定要从第 ${payload.dayIndex} 天行程中移除「${mealName}」安排吗？`)) {
-    return
-  }
-
-  if (currentDay && meal) {
-    currentDay.meals = currentDay.meals.filter((m) => m.mealType !== payload.mealType)
-    const headcount = store.request?.headcount || 1
-    const mealTotal = (meal.perCapita || 0) * headcount
-    if (currentDay.dailyCost && mealTotal) {
-      currentDay.dailyCost = Math.max(0, currentDay.dailyCost - mealTotal)
-    }
-    if (currentPlan.totalCost && mealTotal) {
-      currentPlan.totalCost = Math.max(0, currentPlan.totalCost - mealTotal)
-    }
-  }
+  await store.intervene(action)
+  if (action === 'CONFIRM') router.push({ name: 'result', params: { planId } })
+  else if (action === 'REJECT') router.push({ name: 'planning', params: { planId } })
+  // MODIFY：留在本页进入可编辑态（此处仅关闭弹窗示意）
 }
 
 const onPlanConfirmed = () => {
@@ -180,17 +101,12 @@ watch(() => store.detail?.status, (newStatus) => {
           :draft="draft"
           :title="title"
           @select="activeIndex = $event"
-          @open-confirm="onAction('CONFIRM')"
-          @edit-plan="onEditPlan"
-          @remove-attraction="onRemoveAttraction"
-          @remove-meal="onRemoveMeal"
         />
         <HitlSheet
-          v-if="isHitlModalOpen"
+          v-if="showHitl"
           :reason="detail?.interventionReason"
           :advice="detail?.interventionAdvice"
           @action="onAction"
-          @close="isHitlModalOpen = false"
         />
       </template>
       <div v-else class="pad muted">正在加载真实行程结果…</div>

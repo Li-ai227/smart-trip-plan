@@ -45,16 +45,4 @@ describe('HitlSheet（AC-9 / Case-11）', () => {
     const wrapper = mount(HitlSheet, { props: { reason: '测试' } })
     expect(wrapper.find('.advise').exists()).toBe(false)
   })
-
-  it('点击关闭按钮或背景遮罩 → emit close', async () => {
-    const wrapper = mount(HitlSheet, { props: { reason: '测试' } })
-    const closeBtn = wrapper.find('.sheet-close')
-    expect(closeBtn.exists()).toBe(true)
-    await closeBtn.trigger('click')
-    expect(wrapper.emitted('close')).toBeTruthy()
-
-    const scrim = wrapper.find('.scrim')
-    await scrim.trigger('click')
-    expect(wrapper.emitted('close')?.length).toBe(2)
-  })
 })
