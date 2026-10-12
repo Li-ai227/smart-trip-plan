@@ -14,11 +14,11 @@ import io.agentscope.core.model.OpenAIChatModel;
  */
 public final class LlmModelFactory {
 
-    /** 主 LLM 模型名（硅基流动：deepseek-ai/DeepSeek-V3 兼容 deepseek-v4-pro）。 */
-    public static final String DEFAULT_PRIMARY_MODEL = "deepseek-ai/DeepSeek-V3";
+    /** 主 LLM 模型名（硅基流动：deepseek-v4-pro）。 */
+    public static final String DEFAULT_PRIMARY_MODEL = "deepseek-v4-pro";
 
-    /** 降级 LLM 模型名（阿里云百炼：qwen-turbo / qwen-plus 兼容 qwen3.8flash）。 */
-    public static final String DEFAULT_FALLBACK_MODEL = "qwen-turbo";
+    /** 降级 LLM 模型名（阿里云百炼：qwen3.8flash）。 */
+    public static final String DEFAULT_FALLBACK_MODEL = "qwen3.8flash";
 
     /** 硅基流动 OpenAI 兼容端点（base_url）。
      *
