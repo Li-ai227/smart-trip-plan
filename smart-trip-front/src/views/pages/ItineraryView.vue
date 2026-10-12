@@ -29,7 +29,7 @@ const isPlanReview = computed(() => store.detail?.status === 'plan_review')
 const planDraft = computed(() => store.detail?.planDraft ?? (useMock ? mockPlanReview.planDraft : undefined))
 const planReviewLoading = computed(() => store.loading)
 const planReviewError = computed(() => store.error ?? '')
-const showHitl = computed(() => !!detail.value?.requiresHumanIntervention || detail.value?.status === 'review')
+const isHitlModalOpen = ref(false)
 
 const activeIndex = ref(1)
 
@@ -39,10 +39,11 @@ const title = computed(() => {
 })
 
 const onAction = async (action: InterveneAction) => {
+  isHitlModalOpen.value = false
   await store.intervene(action)
   if (action === 'CONFIRM') router.push({ name: 'result', params: { planId } })
   else if (action === 'REJECT') router.push({ name: 'planning', params: { planId } })
-  // MODIFY：留在本页进入可编辑态（此处仅关闭弹窗示意）
+  // MODIFY：留在本页进入可编辑态（关闭弹窗，允许用户在行程页自由浏览/编辑）
 }
 
 const onPlanConfirmed = () => {
@@ -101,12 +102,14 @@ watch(() => store.detail?.status, (newStatus) => {
           :draft="draft"
           :title="title"
           @select="activeIndex = $event"
+          @open-confirm="isHitlModalOpen = true"
         />
         <HitlSheet
-          v-if="showHitl"
+          v-if="isHitlModalOpen"
           :reason="detail?.interventionReason"
           :advice="detail?.interventionAdvice"
           @action="onAction"
+          @close="isHitlModalOpen = false"
         />
       </template>
       <div v-else class="pad muted">正在加载真实行程结果…</div>

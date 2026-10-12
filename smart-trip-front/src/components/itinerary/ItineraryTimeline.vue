@@ -9,7 +9,10 @@ const props = defineProps<{
   draft?: boolean
   title?: string
 }>()
-const emit = defineEmits<{ (e: 'select', index: number): void }>()
+const emit = defineEmits<{
+  (e: 'select', index: number): void
+  (e: 'open-confirm'): void
+}>()
 
 import { calculateDynamicTimeline } from '@/utils/timeline'
 
@@ -23,8 +26,17 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   <div class="scroll">
     <div class="topbar" style="justify-content: space-between">
       <b style="font-size: 16px">{{ title ?? `${activeDay?.cityLabel ?? ''} 行程` }}</b>
-      <span v-if="draft" class="pill red" style="margin: 0">草案待确认</span>
-      <span v-else class="pill" style="margin: 0; background: #e8faf1; color: #16c784">已确认</span>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <button
+          v-if="draft"
+          class="btn-open-confirm-mobile"
+          @click="emit('open-confirm')"
+        >
+          📋 确认方案
+        </button>
+        <span v-if="draft" class="pill red" style="margin: 0">草案待确认</span>
+        <span v-else class="pill" style="margin: 0; background: #e8faf1; color: #16c784">已确认</span>
+      </div>
     </div>
 
     <div class="daytab">
@@ -69,3 +81,26 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
     </div>
   </div>
 </template>
+
+<style scoped>
+.btn-open-confirm-mobile {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  box-shadow: 0 2px 6px rgba(255, 36, 66, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-open-confirm-mobile:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+</style>

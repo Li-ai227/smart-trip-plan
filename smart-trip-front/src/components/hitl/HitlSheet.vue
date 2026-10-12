@@ -3,11 +3,14 @@
 import type { InterveneAction } from '@/models/trip-plan'
 
 defineProps<{ reason?: string; advice?: string }>()
-const emit = defineEmits<{ (e: 'action', action: InterveneAction): void }>()
+const emit = defineEmits<{
+  (e: 'action', action: InterveneAction): void
+  (e: 'close'): void
+}>()
 </script>
 
 <template>
-  <div class="scrim">
+  <div class="scrim" @click.self="emit('close')">
     <div class="sheet">
       <div class="ic">⚠️</div>
       <h3>需要你确认</h3>

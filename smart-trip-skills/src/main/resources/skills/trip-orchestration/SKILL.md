@@ -1,6 +1,6 @@
 ---
 name: trip_orchestration
-description: 旅行规划顺序编排——agent_spawn 委派四个子 Agent 完成端到端规划，orchestrate_trip 确定性收口
+description: 旅行规划顺序编排——agent_spawn 委派四个子 Agent 完成端到端规划，finalize_native_trip_plan 收口
 version: 2.0.0
 ---
 
@@ -35,9 +35,8 @@ version: 2.0.0
 
 ## 工具
 
-- `orchestrate_trip`：一键执行确定性顺序编排（XHS→Route→Itinerary→Budget→QualityGate），
-  传入用户规划请求 JSON。**必须作为最终收口步骤调用**——LLM 不直接产出行程数据，
-  业务不变量由确定性 TripOrchestrationService 强制。
+- `finalize_native_trip_plan`：Native 收口工具，聚合四个子 Agent 执行结果产出最终方案。**必须作为最终收口步骤调用**。
+- `orchestrate_trip`：确定性一键顺序编排（仅作为无 LLM 或 fallback 兜底时使用，native 正常流程中禁止调用）。
 
 ## 复杂需求处理
 
@@ -48,7 +47,7 @@ Task List 项数上限 30，超限告警并安全终止。
 ## 约束
 
 - 业务不变量由各子 Agent 的 @Tool 强制，不由你裁决
-- 最终必须调用 `orchestrate_trip` 收口产出 TripPlanResult
+- 最终必须调用 `finalize_native_trip_plan` 收口产出 TripPlanResult（禁止调用 orchestrate_trip）
 - 汇总后经 OutputQualityGate 统一复核
 - 超预算≥15%、天数不一致、评分<3.5 触发 HITL，状态进入 review
 - 子 Agent 递归保护由框架强制：子 Agent 不可再 spawn（叶子），硬上限 3 层

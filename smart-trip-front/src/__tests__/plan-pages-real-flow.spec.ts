@@ -94,6 +94,11 @@ describe('页面级真实主流程守护', () => {
 
     expect(state.fetchOnce).toHaveBeenCalledWith('REAL-PLAN-123')
     expect(wrapper.text()).toContain('Day1 杭州')
+    expect(wrapper.text()).toContain('草案待确认')
+    // 点击“确认方案”呼出 HITL 确认弹窗
+    const confirmBtn = wrapper.find('.btn-open-confirm-mobile')
+    expect(confirmBtn.exists()).toBe(true)
+    await confirmBtn.trigger('click')
     expect(wrapper.text()).toContain('真实链路需要确认')
     expect(wrapper.text()).not.toContain('预计费用 ¥9,300')
   })
