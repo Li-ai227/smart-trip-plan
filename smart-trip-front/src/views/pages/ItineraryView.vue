@@ -29,7 +29,12 @@ const isPlanReview = computed(() => store.detail?.status === 'plan_review')
 const planDraft = computed(() => store.detail?.planDraft ?? (useMock ? mockPlanReview.planDraft : undefined))
 const planReviewLoading = computed(() => store.loading)
 const planReviewError = computed(() => store.error ?? '')
-const showHitl = computed(() => !!detail.value?.requiresHumanIntervention || detail.value?.status === 'review')
+const isHitlModalOpen = ref(false)
+
+// 初始若后端确需 HITL 介入，自动开启
+watch(() => detail.value?.requiresHumanIntervention, (val) => {
+  if (val) isHitlModalOpen.value = true
+}, { immediate: true })
 
 const activeIndex = ref(1)
 
@@ -39,17 +44,40 @@ const title = computed(() => {
 })
 
 const onAction = async (action: InterveneAction) => {
-  await store.intervene(action)
-  if (action === 'CONFIRM') router.push({ name: 'result', params: { planId } })
-  else if (action === 'REJECT') router.push({ name: 'planning', params: { planId } })
-  // MODIFY：留在本页进入可编辑态（此处仅关闭弹窗示意）
+  isHitlModalOpen.value = false
+  if (action === 'MODIFY') {
+    // MODIFY：关闭弹窗，留在当前页进入草案微调编辑模式
+    if (store.detail) {
+      store.detail.status = 'review'
+      store.detail.requiresHumanIntervention = false
+    }
+    return
+  }
+
+  try {
+    await store.intervene(action)
+    if (action === 'CONFIRM') {
+      if (store.detail) {
+        store.detail.status = 'confirmed'
+        store.detail.requiresHumanIntervention = false
+      }
+      router.push({ name: 'result', params: { planId } })
+    } else if (action === 'REJECT') {
+      router.push({ name: 'planning', params: { planId } })
+    }
+  } catch (err: unknown) {
+    const msg = (err as Error)?.message || '操作失败，请重试'
+    alert(msg)
+  }
 }
 
 const onEditPlan = () => {
+  // 切换回 review（草案待确认）编辑模式，允许用户直接在时间轴增删微调，不弹出确认框
   if (store.detail) {
     store.detail.status = 'review'
-    store.detail.requiresHumanIntervention = true
+    store.detail.requiresHumanIntervention = false
   }
+  isHitlModalOpen.value = false
 }
 
 const onRemoveAttraction = (payload: { dayIndex: number; attractionId: string }) => {
@@ -158,10 +186,11 @@ watch(() => store.detail?.status, (newStatus) => {
           @remove-meal="onRemoveMeal"
         />
         <HitlSheet
-          v-if="showHitl"
+          v-if="isHitlModalOpen"
           :reason="detail?.interventionReason"
           :advice="detail?.interventionAdvice"
           @action="onAction"
+          @close="isHitlModalOpen = false"
         />
       </template>
       <div v-else class="pad muted">正在加载真实行程结果…</div>
