@@ -9,7 +9,13 @@ const props = defineProps<{
   draft?: boolean
   title?: string
 }>()
-const emit = defineEmits<{ (e: 'select', index: number): void }>()
+const emit = defineEmits<{
+  (e: 'select', index: number): void
+  (e: 'open-confirm'): void
+  (e: 'edit-plan'): void
+  (e: 'remove-attraction', payload: { dayIndex: number; attractionId: string }): void
+  (e: 'remove-meal', payload: { dayIndex: number; mealType: string }): void
+}>()
 
 import { calculateDynamicTimeline } from '@/utils/timeline'
 
@@ -23,8 +29,28 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
   <div class="scroll">
     <div class="topbar" style="justify-content: space-between">
       <b style="font-size: 16px">{{ title ?? `${activeDay?.cityLabel ?? ''} 行程` }}</b>
-      <span v-if="draft" class="pill red" style="margin: 0">草案待确认</span>
-      <span v-else class="pill" style="margin: 0; background: #e8faf1; color: #16c784">已确认</span>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <!-- 草案态：显示确认方案 -->
+        <button
+          v-if="draft"
+          class="pill red"
+          style="margin: 0; cursor: pointer; border: none; font-weight: 700; background: #ff2442; color: #fff"
+          @click="emit('open-confirm')"
+        >
+          📋 确认方案
+        </button>
+        <!-- 已完成态：显示修改行程 -->
+        <button
+          v-else
+          class="pill"
+          style="margin: 0; cursor: pointer; border: 1px solid #d9d9d9; background: #fff; color: #333; font-weight: 600"
+          @click="emit('edit-plan')"
+        >
+          ✏️ 修改行程
+        </button>
+        <span v-if="draft" class="pill red" style="margin: 0">草案待确认</span>
+        <span v-else class="pill" style="margin: 0; background: #e8faf1; color: #16c784">已完成</span>
+      </div>
     </div>
 
     <div class="daytab">
@@ -44,7 +70,26 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
         <div class="stop" v-for="(e, i) in entries" :key="i">
           <div class="time">{{ e.time }}</div>
           <div class="spot">
-            <div class="nm">{{ e.name }}</div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px">
+              <div class="nm">{{ e.name }}</div>
+              <!-- 仅在草案/编辑模式下展示移除按钮 -->
+              <button
+                v-if="draft && e.kind === 'spot' && e.id"
+                class="mobile-btn-remove spot"
+                title="移除景点"
+                @click.stop="emit('remove-attraction', { dayIndex: activeIndex, attractionId: e.id })"
+              >
+                ✕ 移除
+              </button>
+              <button
+                v-else-if="draft && e.kind === 'meal' && e.id"
+                class="mobile-btn-remove meal"
+                title="移除此餐"
+                @click.stop="emit('remove-meal', { dayIndex: activeIndex, mealType: e.id.replace('meal-', '') })"
+              >
+                ✕ 移除此餐
+              </button>
+            </div>
             <div class="meta" v-if="e.kind === 'spot'">
               <span class="star">⭐{{ e.rating }}</span> · 游玩 {{ e.durationH }}h · 门票 ¥{{ e.ticket }}
             </div>
@@ -69,3 +114,31 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
     </div>
   </div>
 </template>
+
+<style scoped>
+.mobile-btn-remove {
+  border: 1px solid #ffccd2;
+  background: #fff5f6;
+  color: #ff2442;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mobile-btn-remove.meal {
+  border-color: #ffe0b2;
+  background: #fff8f0;
+  color: #ff8a00;
+}
+
+.mobile-btn-remove:active {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+</style>

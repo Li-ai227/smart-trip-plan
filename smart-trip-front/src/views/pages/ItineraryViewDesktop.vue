@@ -71,7 +71,15 @@ const onAction = async (action: InterveneAction) => {
   }
 }
 
-const onRemoveAttraction = async (payload: { dayIndex: number; attractionId: string }) => {
+const onEditPlan = () => {
+  // 切换回 review（草案待确认）编辑模式，允许用户增删微调
+  if (store.detail) {
+    store.detail.status = 'review'
+    store.detail.requiresHumanIntervention = true
+  }
+}
+
+const onRemoveAttraction = (payload: { dayIndex: number; attractionId: string }) => {
   const currentPlan = store.detail?.plan
   const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
   const spot = currentDay?.attractions.find((a) => a.id === payload.attractionId)
@@ -81,41 +89,19 @@ const onRemoveAttraction = async (payload: { dayIndex: number; attractionId: str
     return
   }
 
-  try {
-    // 1. 调用后端 HITL MODIFY 接口
-    await store.intervene('MODIFY', { removeAttraction: payload.attractionId })
-
-    // 2. 本地响应式状态即时同步（移除该景点，重算当日开销和总费用）
-    if (currentDay && spot) {
-      currentDay.attractions = currentDay.attractions.filter((a) => a.id !== payload.attractionId)
-      if (currentDay.dailyCost && spot.ticket) {
-        currentDay.dailyCost = Math.max(0, currentDay.dailyCost - spot.ticket)
-      }
-      if (currentPlan.totalCost && spot.ticket) {
-        currentPlan.totalCost = Math.max(0, currentPlan.totalCost - spot.ticket)
-      }
+  // 本地响应式状态即时同步（移除该景点，重算当日开销和总费用）
+  if (currentDay && spot) {
+    currentDay.attractions = currentDay.attractions.filter((a) => a.id !== payload.attractionId)
+    if (currentDay.dailyCost && spot.ticket) {
+      currentDay.dailyCost = Math.max(0, currentDay.dailyCost - spot.ticket)
     }
-  } catch (err: unknown) {
-    const msg = (err as Error)?.message || '移除失败，请重试'
-    alert(msg)
-  }
-}
-
-
-const onEditPlan = async () => {
-  // 切换回 review（草案待确认）状态，允许用户编辑
-  if (store.detail) {
-    store.detail.status = 'review'
-    store.detail.requiresHumanIntervention = true
-    try {
-      await store.intervene('MODIFY')
-    } catch {
-      // 本地状态已切换，后端通知失败不阻断前端交互
+    if (currentPlan.totalCost && spot.ticket) {
+      currentPlan.totalCost = Math.max(0, currentPlan.totalCost - spot.ticket)
     }
   }
 }
 
-const onRemoveMeal = async (payload: { dayIndex: number; mealType: string }) => {
+const onRemoveMeal = (payload: { dayIndex: number; mealType: string }) => {
   const currentPlan = store.detail?.plan
   const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
   const meal = currentDay?.meals?.find((m) => m.mealType === payload.mealType)
@@ -125,25 +111,17 @@ const onRemoveMeal = async (payload: { dayIndex: number; mealType: string }) => 
     return
   }
 
-  try {
-    // 1. 调用后端 HITL MODIFY 接口
-    await store.intervene('MODIFY', { removeMeal: payload.mealType })
-
-    // 2. 本地响应式状态即时同步（移除该餐，重算当日开销和总费用）
-    if (currentDay && meal) {
-      currentDay.meals = currentDay.meals.filter((m) => m.mealType !== payload.mealType)
-      const headcount = store.request?.headcount || 1
-      const mealTotal = (meal.perCapita || 0) * headcount
-      if (currentDay.dailyCost && mealTotal) {
-        currentDay.dailyCost = Math.max(0, currentDay.dailyCost - mealTotal)
-      }
-      if (currentPlan.totalCost && mealTotal) {
-        currentPlan.totalCost = Math.max(0, currentPlan.totalCost - mealTotal)
-      }
+  // 本地响应式状态即时同步（移除该餐，重算当日开销和总费用）
+  if (currentDay && meal) {
+    currentDay.meals = currentDay.meals.filter((m) => m.mealType !== payload.mealType)
+    const headcount = store.request?.headcount || 1
+    const mealTotal = (meal.perCapita || 0) * headcount
+    if (currentDay.dailyCost && mealTotal) {
+      currentDay.dailyCost = Math.max(0, currentDay.dailyCost - mealTotal)
     }
-  } catch (err: unknown) {
-    const msg = (err as Error)?.message || '移除餐食失败，请重试'
-    alert(msg)
+    if (currentPlan.totalCost && mealTotal) {
+      currentPlan.totalCost = Math.max(0, currentPlan.totalCost - mealTotal)
+    }
   }
 }
 

@@ -45,6 +45,57 @@ const onAction = async (action: InterveneAction) => {
   // MODIFY：留在本页进入可编辑态（此处仅关闭弹窗示意）
 }
 
+const onEditPlan = () => {
+  if (store.detail) {
+    store.detail.status = 'review'
+    store.detail.requiresHumanIntervention = true
+  }
+}
+
+const onRemoveAttraction = (payload: { dayIndex: number; attractionId: string }) => {
+  const currentPlan = store.detail?.plan
+  const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
+  const spot = currentDay?.attractions.find((a) => a.id === payload.attractionId)
+  const spotName = spot?.name || '选中的景点'
+
+  if (!confirm(`确定要从第 ${payload.dayIndex} 天行程中移除「${spotName}」吗？`)) {
+    return
+  }
+
+  if (currentDay && spot) {
+    currentDay.attractions = currentDay.attractions.filter((a) => a.id !== payload.attractionId)
+    if (currentDay.dailyCost && spot.ticket) {
+      currentDay.dailyCost = Math.max(0, currentDay.dailyCost - spot.ticket)
+    }
+    if (currentPlan.totalCost && spot.ticket) {
+      currentPlan.totalCost = Math.max(0, currentPlan.totalCost - spot.ticket)
+    }
+  }
+}
+
+const onRemoveMeal = (payload: { dayIndex: number; mealType: string }) => {
+  const currentPlan = store.detail?.plan
+  const currentDay = currentPlan?.days.find((d) => d.index === payload.dayIndex)
+  const meal = currentDay?.meals?.find((m) => m.mealType === payload.mealType)
+  const mealName = meal?.restaurantName ? `${meal.mealType === 'lunch' ? '午餐' : '晚餐'}（${meal.restaurantName}）` : (payload.mealType === 'lunch' ? '午餐' : '晚餐')
+
+  if (!confirm(`确定要从第 ${payload.dayIndex} 天行程中移除「${mealName}」安排吗？`)) {
+    return
+  }
+
+  if (currentDay && meal) {
+    currentDay.meals = currentDay.meals.filter((m) => m.mealType !== payload.mealType)
+    const headcount = store.request?.headcount || 1
+    const mealTotal = (meal.perCapita || 0) * headcount
+    if (currentDay.dailyCost && mealTotal) {
+      currentDay.dailyCost = Math.max(0, currentDay.dailyCost - mealTotal)
+    }
+    if (currentPlan.totalCost && mealTotal) {
+      currentPlan.totalCost = Math.max(0, currentPlan.totalCost - mealTotal)
+    }
+  }
+}
+
 const onPlanConfirmed = () => {
   // CONFIRM 后跳转到规划进度页，前端通过轮询获取进度
   router.push({ name: 'planning', params: { planId }, query: { t: Date.now() } })
@@ -101,6 +152,10 @@ watch(() => store.detail?.status, (newStatus) => {
           :draft="draft"
           :title="title"
           @select="activeIndex = $event"
+          @open-confirm="onAction('CONFIRM')"
+          @edit-plan="onEditPlan"
+          @remove-attraction="onRemoveAttraction"
+          @remove-meal="onRemoveMeal"
         />
         <HitlSheet
           v-if="showHitl"
