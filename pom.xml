@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.smart.trip</groupId>
+    <artifactId>smart-trip-plan</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>smart-trip-plan</name>
+    <description>基于 AgentScope Java 的小红书旅游规划多智能体系统（Maven 多模块骨架）</description>
+
+    <!--
+      根 POM：统一管理工具链版本与依赖（ADR-002 / C-001）。
+      - 版本铁律见 CLAUDE.md：JDK 21 / Spring Boot 4.0.x / AgentScope 2.0.0-RC1 / Maven 3.9+
+      - AgentScope 经 agentscope-bom（import scope）统一管理全家桶版本，子模块依赖不写版本号
+      - 禁止 SNAPSHOT 依赖；项目自身版本亦取 release（0.1.0）以保证 reactor 内依赖可复现
+    -->
+
+    <modules>
+        <module>smart-trip-common</module>
+        <module>smart-trip-skills</module>
+        <module>smart-trip-agent-supervisor</module>
+        <module>smart-trip-agent-xhs</module>
+        <module>smart-trip-agent-route</module>
+        <module>smart-trip-agent-itinerary</module>
+        <module>smart-trip-agent-budget</module>
+        <module>smart-trip-server</module>
+        <module>smart-trip-tests</module>
+    </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <java.version>21</java.version>
+
+        <!-- 技术栈铁律版本（集中锁定，不可协商） -->
+        <!-- C-015 T-1：RC1 → RC4（agentscope-extensions-reme 仅 RC4 提供） -->
+        <agentscope.version>2.0.0-RC4</agentscope.version>
+        <spring-boot.version>4.0.4</spring-boot.version>
+
+        <!-- 构建插件版本（锁定以保证可复现） -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+        <maven-wrapper-plugin.version>3.3.2</maven-wrapper-plugin.version>
+        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+
+        <!-- 质量门禁插件版本（C-002） -->
+        <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
+        <checkstyle.version>10.21.4</checkstyle.version>
+        <maven-pmd-plugin.version>3.26.0</maven-pmd-plugin.version>
+        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <archunit.version>1.3.0</archunit.version>
+
+        <!-- PDF 导出（C-014 T-1 选型：Apache PDFBox 3.0.x，Apache 2.0 许可） -->
+        <pdfbox.version>3.0.4</pdfbox.version>
+
+        <!--
+          质量门禁开关（C-002 AC-4 JaCoCo 激活策略）：
+          - jacoco.check.skip 根默认 true：空模块 / 无核心业务包不因 0 覆盖率误判失败。
+          - 自 C-004 起各业务模块在自身 POM 覆写为 false，并用 includes 精准限定核心包 ≥80%。
+        -->
+        <jacoco.check.skip>true</jacoco.check.skip>
+        <!-- PMD 门禁阈值：仅 priority ≤ 2（P1/P2 严重缺陷）使构建失败（开发流程规范 门禁判定表） -->
+        <pmd.failurePriority>2</pmd.failurePriority>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- AgentScope 全家桶：仅此处指定版本，子模块依赖 agentscope-* 不写版本号 -->
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope-bom</artifactId>
+                <version>${agentscope.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Boot 依赖（agentscope-bom 不管理 spring-boot，需单独 import） -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <source>21</source>
+                        <target>21</target>
+                        <release>21</release>
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven-enforcer-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-wrapper-plugin</artifactId>
+                    <version>${maven-wrapper-plugin.version}</version>
+                </plugin>
+                <!-- Surefire 版本锁定（可复现）：JUnit Platform 6 / Spring Boot 4 测试栈 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+
+                <!--
+                  Checkstyle（C-002 AC-1）：统一规则集 build-tools/checkstyle.xml，
+                  绑定 validate 阶段，违规即 error 失败。规则路径用 multiModuleProjectDirectory
+                  解析到根，保证子模块复用同一份规则。
+                -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>${maven-checkstyle-plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.puppycrawl.tools</groupId>
+                            <artifactId>checkstyle</artifactId>
+                            <version>${checkstyle.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <configLocation>${maven.multiModuleProjectDirectory}/build-tools/checkstyle.xml</configLocation>
+                        <consoleOutput>true</consoleOutput>
+                        <failOnViolation>true</failOnViolation>
+                        <violationSeverity>error</violationSeverity>
+                        <includeTestSourceDirectory>false</includeTestSourceDirectory>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>checkstyle-validate</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!--
+                  PMD + CPD（C-002 AC-2）：统一规则集 build-tools/pmd-ruleset.xml，绑定 verify。
+                  仅 priority ≤ 2 使构建失败（pmd.failurePriority），其余作为报告项。
+                -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-pmd-plugin</artifactId>
+                    <version>${maven-pmd-plugin.version}</version>
+                    <configuration>
+                        <rulesets>
+                            <ruleset>${maven.multiModuleProjectDirectory}/build-tools/pmd-ruleset.xml</ruleset>
+                        </rulesets>
+                        <failurePriority>${pmd.failurePriority}</failurePriority>
+                        <printFailingErrors>true</printFailingErrors>
+                        <includeTests>false</includeTests>
+                        <targetJdk>21</targetJdk>
+                        <minimumTokens>100</minimumTokens>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>pmd-check</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                                <goal>cpd-check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!--
+                  JaCoCo（C-002 AC-4）：prepare-agent + report 始终生效；
+                  check 默认 skip（jacoco.check.skip=true），空模块/无核心包不误判失败。
+                  业务模块（自 C-004 / 本期 C-003 核心类）在自身 POM 覆写 skip=false + includes 精准限定核心包 ≥80%。
+                -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco-maven-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>jacoco-prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>jacoco-report</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>jacoco-check</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <skip>${jacoco.check.skip}</skip>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <limit>
+                                                <counter>LINE</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>0.80</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <!-- 质量门禁全模块继承生效（配置见上方 pluginManagement，C-002）。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+              工具链与依赖卫士（对应 C-001 边界情况 / NFR）：
+              - requireJavaVersion=21   JDK ≠ 21 时构建明确失败
+              - requireMavenVersion=3.9 低于 3.9 时失败（配合 Maven Wrapper 锁定）
+              - requireReleaseDeps      禁止任何 SNAPSHOT 依赖（可复现铁律）
+              说明：Checkstyle / PMD / ArchUnit / JaCoCo 等完整质量门禁归 C-002。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-toolchain-and-release-deps</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[21,22)</version>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.9,)</version>
+                                </requireMavenVersion>
+                                <requireReleaseDeps>
+                                    <message>禁止 SNAPSHOT 依赖（构建可复现铁律）。</message>
+                                    <onlyWhenRelease>false</onlyWhenRelease>
+                                </requireReleaseDeps>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

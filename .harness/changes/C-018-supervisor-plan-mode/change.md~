@@ -1,0 +1,271 @@
+---
+id: C-018
+slug: supervisor-plan-mode
+status: draft
+created: 2026-07-29
+updated: 2026-07-29
+owner: Owner Agent
+---
+
+# C-018 Supervisor 计划模式（AgentScope Plan Mode + 前端人工确认闭环）
+
+## 用户故事
+
+作为**旅游规划系统的用户**，我提交行程规划请求时可以**显式开启「计划模式」**：
+Supervisor 先起草一份执行计划（Markdown 草案），前端暂停并展示草案供我确认/拒绝，
+我确认后系统再委派四个子 Agent 执行完整规划，并在执行过程中实时展示进度。
+
+> 本卡基于 **AgentScope Java Harness 官方 Plan Mode**
+> (`HarnessAgent.builder().enablePlanMode()` + `enterPlanMode(ctx)`/`exitPlanMode(ctx)` 程序化 API，
+> 参见 [官方文档](https://java.agentscope.io/v2/zh/docs/harness/plan-mode.html))。
+> 与 ADR-005 已废弃的旧 `PlanMode` 枚举（`PIPELINE/STATE_GRAPH/PLAN_NOTEBOOK`）**同名异物**，
+> 本卡顺带清理该死代码。
+
+## 非目标（Out of Scope）
+
+- 不做复杂度自动判定（仅用户显式开启 `planMode=true`）。
+- 不开 `allowShellInPlanMode()`（计划阶段 shell 默认被拒）。
+- 不支持人工修改计划草案内容（仅 CONFIRM/REJECT 两种操作，MODIFY 返回 400）。
+- 不改变现有 `review` HITL 语义（原有 `/intervene` 的 CONFIRM/MODIFY/REJECT 三动作不受影响）。
+- 不做前端富文本展示（仅 Markdown 纯文本草案）。
+- 不重新引入文件系统工具（`disableFilesystemTools()` 始终生效）。
+- 子 Agent 不继承 Plan Mode 只读限制（AgentScope 已知缺口，当前无影响——计划阶段空 Toolkit 无子 Agent 可 spawn）。
+
+## 验收标准（AC）
+
+> ⚠️ 本变更的 AC 覆盖完整前端人工确认闭环，按用户交互流程组织：
+> `后端生成草案 → 前端暂停展示草案 → 用户确认/拒绝 → 确认后执行规划调度（含进度展示） + 错误处理`
+
+### 第一阶段：草案生成（后端 → 前端展示）
+
+- **AC-1（草案展示）**: `TripPlanRequest` 新增可选字段 `planMode`（`Boolean`，默认 `false`，向后兼容）。
+  仅当 `planMode=true` 时 `SupervisorHarnessAgentFactory` 进入规划态分支；`false`/未传时行为不变。
+  `GET /api/v1/trip-plan/{planId}` 返回 `planMode` 字段供前端判断是否为计划模式请求。
+
+- **AC-2（Plan Mode 草案起草）**: 规划态调用 `agent.enterPlanMode(ctx)` 程序化进入 Plan Mode，
+  LLM 仅调 `plan_write` 起草计划后停止（不调 `plan_exit`）。Toolkit 仅含框架自动注册的
+  `plan_enter/plan_write/plan_exit`，不注册任何业务 `@Tool` 类。同时保留 `disableFilesystemTools()`。
+
+- **AC-3（草案持久化与前端展示）**: LLM 写入计划草案后，从 workspace `plans/PLAN.md` 读取全文。
+  草案非空时进入 `PlanStatus.PLAN_REVIEW` 状态，经 `PlanCacheService` 写入 Redis
+  `trip:plan:{planId}:draft`（Key 定义见 `CacheKeys`）。
+  `GET /api/v1/trip-plan/{planId}` 返回：
+  - `status: "plan_review"` — 前端据此路由到草案展示面板
+  - `planDraft: "<Markdown 草案全文>"` — 前端直接渲染
+  - `plan: null` — 草案阶段无完整方案
+
+### 第二阶段：用户确认/拒绝
+
+- **AC-4（确认/拒绝操作 - intervene）**: `POST /api/v1/trip-plan/{planId}/intervene` 在
+  `status=plan_review` 态下支持：
+  - `action: "CONFIRM"`：以同一 `sessionId=planId` 重建 `HarnessAgent`（完整业务 Toolkit），
+    调用 `agent.exitPlanMode(ctx)` 程序化退出 Plan Mode 后，异步执行四步编排
+    （XHS→Route→Itinerary→Budget），返回 `status: "planning"`（异步执行中）。
+  - `action: "REJECT"`：状态置 `failed`，`failureReason: "用户拒绝执行计划"`，返回 `status: "failed"`。
+  - `action: "MODIFY"`：返回 `400 INVALID_REQUEST`，错误信息 `"plan_review 态不支持 MODIFY"`。
+
+### 第三阶段：确认后异步执行与进度展示
+
+- **AC-5（确认后异步执行进度展示）**: CONFIRM 后编排在 `CompletableFuture.runAsync` 中异步执行，
+  前端通过 `GET /api/v1/trip-plan/{planId}` 轮询（建议 2s 间隔）获取执行进度：
+  - `status: "planning"` → 正在执行子 Agent 编排
+  - `status: "assembling"` → 行程编排中
+  - `status: "budgeting"` → 预算核算中
+  - `status: "review"` → 编排完成，等待最终 HITL 确认（若 `requiresHumanIntervention=true`）
+  - `status: "confirmed"` → 编排完成，方案已确认可交付
+  - `status: "failed"` → 执行失败，`failureReason` 字段说明原因
+  - 草案执行期间 `planDraft` 字段保留原始草案（供前端对比查看）
+
+### 第四阶段：错误处理
+
+- **AC-6（草案生成失败 → 降级）**: LLM 未产出有效草案（`PLAN.md` 缺失或为空）→ 降级确定性直路，
+  `fallback=true`，跳过 `plan_review` 态直接走原四步编排流程。前端通过 `fallback: true` 感知降级。
+
+- **AC-7（恢复执行异常 → failed）**: CONFIRM 后恢复执行（`exitPlanMode` + 四步编排）过程中抛出异常，
+  状态置 `failed`，`failureReason` 包含异常信息，`planDraft` 保留原始草案供排查。
+
+- **AC-8（重复 CONFIRM 幂等）**: 重复 CONFIRM 请求在 `plan_review` 态以外返回 `400 INVALID_REQUEST`
+  （"仅 plan_review 态可执行 intervene"），不会导致重复执行。
+
+- **AC-9（Modify 拒绝）**: plan_review 态下 `action=MODIFY` 返回 `400 INVALID_REQUEST`，
+  错误信息 `"plan_review 态不支持 MODIFY"`。
+
+## 边界情况（≥3）
+
+- **边界-1: `planMode=true` 但请求简单** → 仍遵循用户意图进入计划模式起草草案，不作复杂度预判。
+- **边界-2: `plan_review` 超时/Redis TTL 到期** → 不自动 CONFIRM/REJECT，Redis TTL 到期后按现有
+  `loadDetail()` 兜底策略处理（status 回退或返回空 detail）。
+- **边界-3: ReMe 记忆召回失败** → 计划草案不受影响，降级为无记忆草案生成。
+- **边界-4: 子 Agent 委派降级** → 与 `planMode=false` 一致，降级后继续后续步骤，最终 `fallback=true`。
+- **边界-5: 并发用户对同一 planId 操作** → `checkOwnership` 在 intervene 入口校验 userId，
+  不同用户无权操作；同一用户重复 CONFIRM 走幂等守卫（AC-8）。
+- **边界-6: 草案含敏感信息** → 草案经 `SensitiveDataMasker` 脱敏后落 Redis `trip:plan:{planId}:draft`，
+  不落盘 MySQL。
+
+## 非功能需求
+
+| 维度 | 指标 |
+|------|------|
+| 性能 | 草案生成 P95 < 20s（仅一次 LLM `plan_write` 调用，无业务工具调用）；`planMode=false` 路径 P95 < 30s（无新增开销） |
+| 可靠性 | 草案生成全链路失败降级确定性直路（`fallback=true`）；CONFIRM 后恢复执行异常走 `failed` 态（`failureReason` 带异常信息） |
+| 安全 | 计划阶段禁用文件系统 (`disableFilesystemTools()`) + 不开启 shell (`allowShellInPlanMode` 不调用)；userId 隔离（`checkOwnership` 守卫 intervene/query）；`sessionId=planId` 隔离跨请求会话 |
+| 可观测 | `plan.mode.*` 四项指标（`plan.mode.enter` / `plan.mode.draft` / `plan.mode.confirm` / `plan.mode.reject`）；`traceId`/`planId` 贯穿两阶段；`plan.mode.draft.empty` 降级计数 |
+
+## 设计约束
+
+- 必须放在 `huazai-trip-skills` 模块（`SupervisorPlanModeSupport`/`PlanDraftPause`）和 `huazai-trip-server` 模块（`PlanModeFacadeHelper`）。
+- 不允许破坏 `planMode=false` 路径的向后兼容性（`Boolean.TRUE.equals()` 守卫，false/unset 行为不变）。
+- 必须复用已有 `PlanCacheService`（Redis 草案存储）、`TripPlanResult`（`planPause` 字段）、`SupervisorAgentRunner`（`resume` 方法签名）。
+- 不允许引入新的枚举或状态——复用 `PlanStatus.PLAN_REVIEW`（已在 C-018 之前预定义）。
+- 必须删除旧 `com.huazai.trip.common.enums.PlanMode` 枚举及其 `EnumContractTest` 断言（消除 ADR-005 残留命名歧义）。
+- 计划阶段 Toolkit 必须为空（仅框架自动注册的工具），不注册任何业务 `@Tool` 类。
+
+## 契约影响
+
+- **REST**: `POST /api/v1/trip-plan` 请求体新增 `planMode` 可选字段（Boolean，默认 false）；
+  `GET /api/v1/trip-plan/{planId}` 响应新增 `planDraft` 字段（status=plan_review 时）；
+  `POST /api/v1/trip-plan/{planId}/intervene` 在 `plan_review` 态下支持 CONFIRM/REJECT 动作。
+- **A2A**: 无影响（Plan Mode 仅在 SupervisorAgent 内部实现，不改变 A2A 消息契约）。
+- **数据模型**: `TripPlanRequest` 新增 `planMode` 字段；`TripPlanResult` 新增 `planPause` 字段（`PlanDraftPause` record）。
+- **Redis / ReMe**: 新增 Key `trip:plan:{planId}:draft`（String 类型，30d TTL，草案 Markdown 全文）。
+
+## 影响面
+
+- **模块**:
+  - `huazai-trip-skills/supervisor/` — 新增 `SupervisorPlanModeSupport`、`PlanDraftPause`；修改 `SupervisorHarnessAgentFactory`（新增 `runPlanningPhase`、`resume` 方法）
+  - `huazai-trip-server/` — 新增 `PlanModeFacadeHelper`；修改 `TripPlanFacade`（新增 `executeOrchestration` 中 `handlePlanPause` 分流）
+  - `huazai-trip-common/` — 修改 `TripPlanRequest`（新增 `planMode` 字段）；修改 `TripPlanResult`（新增 `planPause` 字段）；删除 `PlanMode` 枚举
+- **外部 API**: 无新增外部 API 依赖
+- **wiki 更新**: `数据模型.md`（`TripPlanRequest` 字段表、Redis Key Schema 新增 `trip:plan:{planId}:draft`）；`接口协议.md`（`planMode` 请求字段、`planDraft` 响应字段、`plan_review` 态 intervene 语义）；`架构决策.md`（ADR-005 补充 C-018 说明）
+
+## 测试策略
+
+| 层级 | 覆盖范围 | 工具/方法 |
+|------|----------|----------|
+| 单元测试 | `SupervisorPlanModeSupport`（`PLAN_SYS_PROMPT`、`buildPlanPrompt`、`readPlanDraft`、`sessionContext`、`PlanDraftPause`） | JaCoCo ≥80% |
+| 单元测试 | `PlanModeFacadeHelper`（`handlePlanPause`、`intervenePlanReview` 三种 action） | JaCoCo ≥80% |
+| 单元测试 | `PlanCacheService.storePlanDraft/getPlanDraft` | JaCoCo ≥80% |
+| 单元测试 | `TripPlanRequest.planMode` 字段（默认 false、序列化、向后兼容） | JaCoCo ≥80% |
+| 单元测试 | `CacheKeys.planDraftKey` | JaCoCo ≥80% |
+| 单元测试 | 旧 `PlanMode` 枚举删除后编译验证 | `mvn compile` |
+| 集成测试 | CONFIRM 完整恢复链路（真实 Redis + SupervisorAgent 集成） | `SupervisorHarnessAgentFactoryIT` |
+| 集成测试 | LLM 未产出草案 → 降级确定性直路（`runPlanningPhase` → `SupervisorAgent.resolve`） | `SupervisorHarnessAgentFactoryIT` |
+| 回归测试 | `planMode=false` 行为不变（现有 4 个子 Agent 编排不受影响） | 现有全量单测 |
+
+## 验收用例
+
+| # | 用例 | 前置 | 操作 | 预期 | 测试类型 |
+|---|------|------|------|------|----------|
+| 1 | `planMode=false` 零回归 | 提交 `planMode=false` 请求 | 观察编排流程 | 无 `plan_review` 态，直接四步编排，行为不变 | 回归 |
+| 2 | `planMode=true` → plan_review → CONFIRM → 执行 | 提交 `planMode=true` 请求 | ① 查询状态 → ② 前端展示草案 → ③ 用户 CONFIRM → ④ 轮询进度 | ① `status=plan_review` + `planDraft` 非空 → ② 草案渲染 → ③ `exitPlanMode` + 异步编排 → ④ 状态逐步推进至 `confirmed`/`review` | 端到端 |
+| 3 | `planMode=true` → REJECT → failed | 同上 | 用户 REJECT | `status=failed` + `failureReason="用户拒绝执行计划"` | 单元 |
+| 4 | LLM 未产出草案 → 降级 | 提交 `planMode=true` 请求，LLM 不调 `plan_write` | 观察编排流程 | 跳过 `plan_review`，`fallback=true` 确定性直路 | 集成 |
+| 5 | `planMode=true` → MODIFY → 400 | 同上 | 用户 MODIFY | `400 InvalidRequestException` + `"plan_review 态不支持 MODIFY"` | 单元 |
+| 6 | CONFIRM 后执行异常 → failed | 同上 | 用户 CONFIRM + 编排过程抛出异常 | `status=failed` + `failureReason` 含异常信息 + `planDraft` 保留 | 集成 |
+| 7 | 重复 CONFIRM 幂等 | 已 CONFIRM 的方案 | 再次 CONFIRM | `400 INVALID_REQUEST` + `"仅 review/plan_review 态可执行 intervene"` | 单元 |
+
+## 设计
+
+### 1. 完整人工确认闭环流程
+
+```
+┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│ 后端: 提交请求 │ ──▶ │ 后端: Plan Mode   │ ──▶ │ 前端: 展示草案    │ ──▶ │ 用户: 确认/拒绝   │
+│ planMode=true  │     │ plan_write 起草   │     │ plan_review 态   │     │ CONFIRM/REJECT   │
+│ → 202 Accepted │     │ → 存 Redis 草案  │     │ planDraft 渲染   │     │                  │
+└──────────────┘     └──────────────────┘     └──────────────────┘     └──────────────────┘
+                                                                               │
+                                                                               ▼
+                                                                     ┌──────────────────┐
+                                                                     │ ┌─ CONFIRM:       │
+                                                                     │ │ exitPlanMode    │
+                                                                     │ │ + 异步四步编排   │
+                                                                     │ │ + 进度轮询       │
+                                                                     │ │                 │
+                                                                     │ └─ REJECT:        │
+                                                                     │   status=failed   │
+                                                                     │   failureReason   │
+                                                                     └──────────────────┘
+                                                                               │
+                                                                               ▼
+                                                                     ┌──────────────────┐
+                                                                     │ 前端: 实时进度展示  │
+                                                                     │ planning→assembling│
+                                                                     │ →budgeting→review │
+                                                                     │ /confirmed/failed  │
+                                                                     └──────────────────┘
+```
+
+### 2. Plan Mode 装配（官方 API）
+
+采用 AgentScope 官方 programmatic API，不依赖 LLM 调用 `plan_exit`：
+
+| 阶段 | API | 说明 |
+|------|-----|------|
+| 进入 Plan Mode | `agent.enterPlanMode(ctx)` | 程序化进入，等价于 LLM 调 `plan_enter` |
+| LLM 起草计划 | `agent.call(planPrompt, ctx).block()` | 只读阶段，仅 `plan_write` 可用 |
+| 读取草案 | `SupervisorPlanModeSupport.readPlanDraft(workspace)` | 直接读 `plans/PLAN.md` |
+| 返回 plan_review | `TripPlanResult.planPause=(draftMarkdown, "")` | 含草案全文 |
+| CONFIRM 恢复 | `agent.exitPlanMode(ctx)` + `agent.call(execPrompt, ctx).block()` | 程序化退出 + 完整四步编排 |
+
+其中 `ctx = RuntimeContext.builder().sessionId(planId).userId(userId).build()`，
+确保不同请求的 AgentState 互不串扰（`sessionId=planId` 隔离）。
+
+### 3. Toolkit 两段式装配
+
+| 阶段 | Toolkit | 说明 |
+|------|---------|------|
+| **规划态**（`runPlanningPhase`） | 空 `Toolkit` + `enablePlanMode()` | 框架自动注册 `plan_enter/plan_write/plan_exit`；业务 `@Tool` 不注册 → 即使 `agent_spawn` 被调用也无业务工具 |
+| **执行态**（`resume`/`run`） | 完整业务 Toolkit（5 个 `@Tool` 类 + `TripOrchestrationTools`） | 不调 `enablePlanMode()`；通过 `agent.exitPlanMode(ctx)` 程序化退出 |
+
+### 4. 进度追踪机制
+
+CONFIRM 后编排在 `CompletableFuture.runAsync` 中异步执行，通过以下机制实现进度展示：
+
+1. **`SupervisorNativeRunContext.ProgressListener`** — 子 Agent 每步完成时触发进度通知
+2. **Redis 状态轮询** — `GET /api/v1/trip-plan/{planId}` 返回实时 `status` 字段
+3. **状态转换序列**：`plan_review` → CONFIRM → `planning` → `assembling` → `budgeting` → `review`/`confirmed`/`failed`
+
+### 5. 与 C-017 历史规划持久化的兼容性
+
+| 阶段 | 状态 | 触发 C-017 持久化 | 说明 |
+|------|------|-------------------|------|
+| 草案生成 | `plan_review` | ❌ 不触发 | 仅草案存 Redis，不写入 MySQL 业务表 |
+| CONFIRM 后编排完成 | `CONFIRMED` | ✅ 触发 | `PlanModeFacadeHelper.handlePlanReviewConfirm()` 恢复编排到达终态后写入 |
+| REJECT | `failed` | ❌ 不触发 | REJECT 路径写失败原因，不写入规划详情 |
+| CONFIRM 后编排失败 | `FAILED` | ✅ 触发 | 写入 FAILED 记录，days 为空，费用零值 |
+
+### 6. 错误处理矩阵
+
+| 错误场景 | 兜底策略 | 前端表现 |
+|----------|---------|---------|
+| LLM 未产出草案 | 降级确定性直路，`fallback=true` | 无 `plan_review` 态，直接出结果 |
+| CONFIRM 后恢复异常 | 状态置 `failed`，`failureReason` 带异常信息 | 展示失败页面 + 原始草案 + 错误原因 |
+| 草案存储 Redis 失败 | 日志 WARNING，不阻塞主链路 | 草案丢失，前端展示空草案 |
+| 重复 CONFIRM | 幂等守卫，返回 400 | 前端提示操作无效 |
+| userId 不匹配 | 403 FORBIDDEN | 前端提示无权限 |
+
+## 任务拆解（TDD）
+
+> 遵循 TDD 模式：先写失败测试 → 最小实现 → 重构。
+
+- [ ] T-1: `TripPlanRequest` 新增 `planMode` 字段 + 旧 `PlanMode` 枚举删除 + 编译验证 · 优先级 P0 · 模块 common
+- [ ] T-2: `SupervisorPlanModeSupport` 纯 Java 装配（`PLAN_SYS_PROMPT`、`buildPlanPrompt`、`readPlanDraft`、`sessionContext`） + `PlanDraftPause` record · 优先级 P0 · 模块 skills
+- [ ] T-3: `SupervisorHarnessAgentFactory` 规划态分叉（`runPlanningPhase` + `enablePlanMode()` + 空 Toolkit） · 优先级 P0 · 依赖 T-2 · 模块 skills
+- [ ] T-4: `PlanCacheService` 草案存取（`storePlanDraft`/`getPlanDraft`）+ `CacheKeys.planDraftKey` · 优先级 P0 · 模块 server
+- [ ] T-5: `PlanModeFacadeHelper` 草案暂停 + 三种 action 响应（CONFIRM/REJECT/MODIFY） · 优先级 P0 · 依赖 T-3/T-4 · 模块 server
+- [ ] T-6: `TripPlanFacade.executeOrchestration` 中 `handlePlanPause` 分流 + `planMode=true` 编排分叉 · 优先级 P0 · 依赖 T-5 · 模块 server
+- [ ] T-7: 前端进度展示：CONFIRM 后异步编排状态轮询（`planning`→`assembling`→`budgeting`→`review`/`confirmed`/`failed`） · 优先级 P1 · 依赖 T-6 · 模块 server
+- [ ] T-8: 错误处理与降级测试（LLM 未产出草案降级、恢复异常 failed、重复 CONFIRM 幂等） · 优先级 P1 · 依赖 T-6 · 模块 skills/server
+- [ ] T-9: 专家评审修复（若有） · 优先级 P2 · 依赖 T-1~T-8
+- [ ] T-10: wiki 同步（数据模型 / 接口协议 / 架构决策 ADR-005 补充） · 优先级 P2 · 依赖 T-1~T-9
+
+## 流水线进度
+
+- [ ] ① 需求分析（analyzing）
+- [ ] ② 编码实现（coding）
+- [ ] ③ 单测编写（testing，覆盖率 ≥80%）
+- [ ] ④ 专家评审（reviewing，0 🔴 严重问题）→ review.md
+- [ ] ⑤ CI 门禁（ci，全绿）
+- [ ] ⑥ 部署验证（verifying）→ verify.md
+- [ ] 交付（done，wiki 已同步）

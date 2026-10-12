@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>智能旅游规划</title>
+  </head>
+  <body>
+    <script>
+      // 检测设备模式并设置 body 类名（必须在 <body> 内，此时 document.body 已存在）
+      (function () {
+        var storedMode = localStorage.getItem('device-mode')
+        var mode = storedMode || 'desktop'
+        document.body.classList.add(mode + '-mode')
+        if (window.innerWidth < 768) {
+          document.body.classList.remove('desktop-mode')
+          document.body.classList.add('mobile-mode')
+        }
+      })()
+    </script>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

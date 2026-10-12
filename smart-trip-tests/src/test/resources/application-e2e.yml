@@ -1,0 +1,38 @@
+# E2E 测试 profile（C-012）：
+# - embedded Redis 替代真实 Redis（数据隔离）
+# - 关闭 MySQL（trace 审计 + 用户认证不连库）
+# - 关闭 Nacos 探针
+# - 关闭环境变量 fail-fast（CI 无需真实密钥）
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6399
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+
+trip:
+  nacos:
+    server-addr: 127.0.0.1:8848
+  nacos-health:
+    enabled: false
+  env:
+    validation:
+      enabled: false
+  trace:
+    datasource:
+      enabled: false
+  auth:
+    datasource:
+      enabled: false

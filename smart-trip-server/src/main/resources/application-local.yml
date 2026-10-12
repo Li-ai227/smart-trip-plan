@@ -1,0 +1,40 @@
+# 本地开发 profile（C-003）：连本机 MySQL/Redis，不需要 Nacos/Docker。
+# 本地空跑无需真实 LLM 密钥，关闭环境变量 fail-fast 校验。
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:lisiyu20060404}
+      timeout: 2s
+
+server:
+  port: 8082
+
+trip:
+  nacos:
+    server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+  nacos-health:
+    enabled: false   # 本地不启动 Nacos，关闭健康探针避免 actuator 告警
+  env:
+    validation:
+      enabled: false
+  # C-011 认证数据库（本地 MySQL）
+  auth:
+    datasource:
+      host: ${AUTH_DB_HOST:127.0.0.1}
+      port: ${AUTH_DB_PORT:3306}
+      database: ${AUTH_DB_NAME:smart_trip_plan}
+      username: ${AUTH_DB_USERNAME:root}
+      password: ${AUTH_DB_PASSWORD:lisiyu20060404}
+      pool-size: 2
+  # C-010 审计追踪 + C-017 历史规划持久化（本地 MySQL，与 auth 库同实例）
+  trace:
+    datasource:
+      enabled: true
+      host: ${TRACE_DB_HOST:127.0.0.1}
+      port: ${TRACE_DB_PORT:3306}
+      database: ${TRACE_DB_NAME:smart_trip_plan_trace}
+      username: ${TRACE_DB_USERNAME:root}
+      password: ${TRACE_DB_PASSWORD:lisiyu20060404}
+      pool-size: 2

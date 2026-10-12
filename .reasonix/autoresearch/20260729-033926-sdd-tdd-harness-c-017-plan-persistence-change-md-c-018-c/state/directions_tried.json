@@ -1,0 +1,16 @@
+[
+  {
+    "fingerprint": "task-385369d8",
+    "summary": "## 完成",
+    "first_seen_iteration": 1,
+    "last_seen_iteration": 1,
+    "count": 1
+  },
+  {
+    "fingerprint": "c-017-plan-persistence-change-md-harness-changes-c-017-p-c751033a",
+    "summary": "已完成。`C-017-plan-persistence` 的标准 `change.md` 已写入 `.harness/changes/C-017-plan-persistence/change.md`（156 行，14058 字节），**状态\ufffd",
+    "first_seen_iteration": 2,
+    "last_seen_iteration": 2,
+    "count": 1
+  }
+]

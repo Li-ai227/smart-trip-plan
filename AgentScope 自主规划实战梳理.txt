@@ -1,0 +1,509 @@
+AgentScope 自主规划实战 — 小红书旅游规划多智能体系统
+
+基于 AgentScope Java 2.0.0+ | Spring Boot 3.5.x | JDK 21 LTS | Maven 3.9+
+多 Agent + SDD 思想 + Harness Engineering + CC VibeCoding + Skills 渐进式加载
+
+═══════════════════════════════════════════════════════════════
+第一部分：项目初始化与基础设施
+═══════════════════════════════════════════════════════════════
+
+一、项目初始化 — Maven 多模块脚手架搭建
+
+1.1  项目目录全览（9 个子模块 + specs + docker + .claude）
+1.2  Maven 根 POM 配置：版本统一管理（JDK 21 / Spring Boot 3.5.x / AgentScope 2.0.0）
+1.3  子模块划分原则：一个 Agent = 一个模块，Skills 独立共享，Server 统一入口
+1.4  Maven Wrapper 锁定构建工具版本
+1.5  .editorconfig + Checkstyle（Alibaba Java Coding Guidelines）+ PMD 静态分析
+1.6  Docker Compose 本地基础设施：Nacos 3.1.0 + Redis 7.x 一键启动
+1.7  Git 提交规范：<type>(<scope>): <TASK-ID> <描述>（Conventional Commits）
+
+二、SDD 规范驱动开发体系搭建
+
+2.1  SPECIFY → PLAN → TASKS → IMPLEMENT 四阶段工作流概述
+2.2  specs/ 目录规范：constitution.md（宪章）+ architecture.md（ADR）+ 方法论 + features/
+2.3  specs/features/<NNN-feature>/ 按功能组织：spec.md → design.md → tasks.md
+2.4  CLAUDE.md 作为 AI 协作入口（~100 行地图模式，按需加载详细文档）
+2.5  .claude/commands/ 自定义命令：/spec /plan /tasks /implement /review
+2.6  .claude/settings.json 权限策略：Allow Maven/Docker/Git，Deny rm/sudo/.env
+
+三、Harness Engineering 七层约束架构
+
+3.1  层1 项目搭建层：JDK/Maven/Docker 版本锁定 + .java-version + Maven Wrapper
+3.2  层2 上下文工程层：CLAUDE.md → specs/ 按需加载，ReMe 双层记忆（Redis + 向量DB）
+3.3  层3 约束防护层：ArchUnit 架构测试 + Guava RateLimiter + AgentScope 安全沙箱
+3.4  层4 多Agent架构层：防死锁（调用深度≤5）+ Agent 状态机（IDLE→THINKING→ACTING→OBSERVING→DONE）
+3.5  层5 评估反馈层：OutputQualityGate 质量门禁 + 用户反馈闭环 → ReMe 长期记忆
+3.6  层6 长任务层：Session 持久化 + PlanNotebook 断点续传 + 任务生命周期管理
+3.7  层7 诊断工具层：OpenTelemetry 链路追踪 + Micrometer→Prometheus 指标 + 结构化 JSON 日志
+
+═══════════════════════════════════════════════════════════════
+第二部分：项目目录结构（完整版）
+═══════════════════════════════════════════════════════════════
+
+smart-trip-plan/                          # 🏠 项目根目录
+│
+├── CLAUDE.md                              # 🤖 AI 协作入口（地图模式，~100行）
+├── README.md                              # 📖 项目 README
+├── LICENSE                                # ⚖️  Apache 2.0
+├── .gitignore                             # 🔒 Git 忽略规则
+├── .java-version                          # 🔧 JDK 17 版本锁定
+├── .editorconfig                          # 📝 编辑器统一配置
+├── pom.xml                                # 📦 Maven 根 POM（版本统一管理）
+│
+├── .mvn/                                  # 🔧 Maven Wrapper（锁定 Maven 版本）
+│   └── wrapper/
+│       ├── maven-wrapper.jar
+│       └── maven-wrapper.properties
+│
+├── .claude/                               # 🤖 Claude Code 配置
+│   ├── settings.json                      # 权限策略 + Hook 配置
+│   ├── settings.local.json                # 本地覆盖配置
+│   └── commands/                          # 自定义 / 命令
+│       ├── spec.md                        # /spec  — SDD 阶段1: 编写功能规范
+│       ├── plan.md                        # /plan  — SDD 阶段2: 编写技术方案
+│       ├── tasks.md                       # /tasks — SDD 阶段3: 拆解任务清单
+│       ├── implement.md                   # /implement — SDD 阶段4: 逐项实现+自审计
+│       └── review.md                      # /review — 7 维度代码审查
+│
+├── specs/                                 # 📋 规范文档（真相来源 — Truth Source）
+│   ├── README.md                          # specs/ 目录说明
+│   ├── constitution.md                    # 🏛️  项目宪章（不可违背的铁律）
+│   ├── architecture.md                    # 🏗️  架构决策记录（7 个 ADR）
+│   ├── sdd-specification.md               # 📐 SDD 四阶段工作流实施规范
+│   ├── harness-engineering.md             # 🔗 七层约束架构详细说明
+│   ├── vibe-coding.md                     # 🎸 α/Ω 提示词体系 + 人机协作协议
+│   ├── tech-debt.md                       # 📊 技术债登记与追踪
+│   ├── delivery-plan.md                   # 📅 交付计划与里程碑
+│   ├── api-contracts/                     # 📡 API 契约
+│   │   ├── rest-api.yaml                  # REST API 规范（OpenAPI 3.0）
+│   │   └── a2a-protocol.md                # A2A 协议消息规范
+│   └── features/                          # 🎯 按功能组织的 SDD 四阶段文档
+│       ├── 001-xhs-analysis/              # 小红书笔记分析
+│       │   ├── spec.md                    # 功能规范
+│       │   ├── design.md                  # 技术方案
+│       │   └── tasks.md                   # 任务清单
+│       ├── 002-route-planning/            # 路线规划
+│       │   ├── spec.md
+│       │   ├── design.md
+│       │   └── tasks.md
+│       ├── 003-itinerary/                 # 行程编排
+│       │   ├── spec.md
+│       │   ├── design.md
+│       │   └── tasks.md
+│       ├── 004-budget/                    # 费用统筹
+│       │   ├── spec.md
+│       │   ├── design.md
+│       │   └── tasks.md
+│       └── 005-supervisor/               # 主管编排
+│           ├── spec.md
+│           ├── design.md
+│           └── tasks.md
+│
+├── docker/                                # 🐳 容器化基础设施
+│   ├── docker-compose.yml                 # Nacos 3.1.0 + Redis 7.x
+│   ├── nacos/                             # Nacos 配置
+│   │   └── conf/
+│   │       └── application.properties
+│   └── redis/                             # Redis 配置
+│       └── redis.conf
+│
+├── smart-trip-common/                    # 📦 公共模块（所有模块的基础依赖）
+│   ├── pom.xml
+│   └── src/main/java/com/smart_trip/trip/common/
+│       ├── model/                         # 数据模型
+│       │   ├── TripPlan.java              # 行程方案
+│       │   ├── TripDay.java               # 每日行程
+│       │   ├── Attraction.java            # 景点
+│       │   ├── Route.java                 # 路线
+│       │   ├── Budget.java                # 预算
+│       │   ├── Meal.java                  # 餐饮
+│       │   └── GeoLocation.java           # 地理位置
+│       ├── dto/                           # 数据传输对象
+│       │   ├── TripPlanRequest.java       # 规划请求
+│       │   ├── TripPlanResponse.java      # 规划响应
+│       │   └── ValidationResult.java      # 验证结果
+│       ├── enums/                         # 枚举
+│       │   ├── AgentStatus.java           # Agent 状态
+│       │   ├── TravelStyle.java           # 旅行风格（亲子/情侣/独自/团建）
+│       │   ├── PlanMode.java              # 规划模式（Pipeline/StateGraph/PlanNotebook）
+│       │   └── BudgetLevel.java           # 预算等级
+│       ├── exception/                     # 异常体系
+│       │   ├── BaseException.java         # 基础异常
+│       │   ├── AgentCallException.java    # Agent 调用异常
+│       │   ├── AgentLoopException.java    # Agent 循环检测异常
+│       │   ├── RateLimitException.java    # 限频异常
+│       │   └── LLMTimeoutException.java   # LLM 超时异常
+│       ├── util/                          # 工具类
+│       │   ├── JsonUtils.java             # JSON 序列化
+│       │   ├── ValidationUtils.java       # 参数校验
+│       │   ├── TimeUtils.java             # 时间工具
+│       │   └── GeoUtils.java              # 地理距离计算
+│       └── constant/                      # 常量
+│           ├── AgentConstants.java        # Agent 相关常量
+│           ├── ApiConstants.java          # API 配置常量
+│           └── CacheConstants.java        # 缓存 Key 常量
+│
+├── smart-trip-agent-supervisor/          # 🧠 主管 Agent（任务分解与编排）
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/smart_trip/trip/supervisor/
+│       │   ├── SupervisorAgent.java       # 主管 ReActAgent（核心）
+│       │   ├── config/
+│       │   │   └── SupervisorConfig.java  # 主管配置（模式选择策略）
+│       │   ├── orchestration/             # 编排引擎
+│       │   │   ├── PlanOrchestrator.java  # 编排接口
+│       │   │   ├── PipelineMode.java      # Pipeline 顺序流水线
+│       │   │   ├── StateGraphMode.java    # StateGraph 条件分支
+│       │   │   └── PlanNotebookMode.java  # PlanNotebook 自主规划 ⭐
+│       │   ├── notebook/                  # PlanNotebook 扩展
+│       │   │   ├── PlanStep.java          # 规划步骤
+│       │   │   ├── NotebookState.java     # Notebook 状态
+│       │   │   └── HookInterceptor.java   # Hook 拦截器（HITL 检查点）
+│       │   └── dispatch/                  # 任务分发
+│       │       ├── TaskDispatcher.java    # 任务分发器
+│       │       ├── A2AClientService.java  # A2A 协议客户端
+│       │       └── AgentRegistry.java     # Agent 注册表（从 Nacos 拉取）
+│       └── test/
+│           └── java/com/smart_trip/trip/supervisor/
+│               ├── SupervisorAgentTest.java
+│               ├── PlanNotebookModeTest.java
+│               └── HookInterceptorTest.java
+│
+├── smart-trip-agent-xhs/                 # 🔍 小红书笔记分析 Agent
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/smart_trip/trip/xhs/
+│       │   ├── XHSAnalysisAgent.java      # 小红书分析 ReActAgent（核心）
+│       │   ├── config/
+│       │   │   └── XHSConfig.java         # 小红书 API 配置
+│       │   ├── tool/                      # Tool 封装（LLM 可调用）
+│       │   │   ├── NoteSearchTool.java    # 笔记搜索工具
+│       │   │   ├── NoteExtractTool.java   # 笔记内容提取工具
+│       │   │   └── SentimentAnalysisTool.java # 情感分析工具
+│       │   ├── service/
+│       │   │   ├── NoteSearchService.java # 笔记搜索服务
+│       │   │   └── ContentAnalysisService.java # 内容分析服务
+│       │   └── repository/
+│       │       └── NoteCacheRepository.java # 笔记缓存（Redis, 24h TTL）
+│       └── test/
+│           └── java/com/smart_trip/trip/xhs/
+│               ├── XHSAnalysisAgentTest.java
+│               ├── NoteSearchToolTest.java
+│               └── NoteExtractToolTest.java
+│
+├── smart-trip-agent-route/               # 🗺️  路线规划 Agent
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/smart_trip/trip/route/
+│       │   ├── RouteAgent.java            # 路线规划 ReActAgent（核心）
+│       │   ├── config/
+│       │   │   └── RouteConfig.java       # 地图 API 配置
+│       │   ├── tool/                      # Tool + MCP 封装
+│       │   │   ├── BaiduMapTool.java      # 百度地图 MCP Tool
+│       │   │   ├── GaodeMapTool.java      # 高德地图 MCP Tool（备选）
+│       │   │   ├── DistanceTool.java      # 距离计算工具
+│       │   │   └── TrafficTool.java       # 实时路况工具
+│       │   ├── mcp/                       # MCP 协议适配层
+│       │   │   ├── BaiduMcpAdapter.java   # 百度地图 MCP 适配器
+│       │   │   └── GaodeMcpAdapter.java   # 高德地图 MCP 适配器
+│       │   └── service/
+│       │       ├── RoutePlanningService.java # 路线规划核心服务
+│       │       └── GeoCodeService.java    # 地理编码服务
+│       └── test/
+│           └── java/com/smart_trip/trip/route/
+│               ├── RouteAgentTest.java
+│               ├── BaiduMapToolTest.java
+│               └── RoutePlanningServiceTest.java
+│
+├── smart-trip-agent-itinerary/           # 📅 行程编排 Agent
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/smart_trip/trip/itinerary/
+│       │   ├── ItineraryAgent.java        # 行程编排 ReActAgent（核心）
+│       │   ├── config/
+│       │   │   └── ItineraryConfig.java   # 行程配置
+│       │   ├── tool/
+│       │   │   ├── AttractionSearchTool.java  # 景点搜索工具
+│       │   │   ├── RestaurantSearchTool.java  # 餐厅搜索工具
+│       │   │   ├── TimeAllocationTool.java    # 时间分配工具
+│       │   │   └── PdfExportTool.java         # PDF 导出工具
+│       │   └── service/
+│       │       ├── ItineraryDesignService.java  # 行程编排核心服务
+│       │       ├── AttractionRankService.java   # 景点排序服务
+│       │       └── TimeSlotOptimizer.java       # 时间槽优化器
+│       └── test/
+│           └── java/com/smart_trip/trip/itinerary/
+│               ├── ItineraryAgentTest.java
+│               ├── TimeAllocationToolTest.java
+│               └── ItineraryDesignServiceTest.java
+│
+├── smart-trip-agent-budget/              # 💰 费用统筹 Agent
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/smart_trip/trip/budget/
+│       │   ├── BudgetAgent.java           # 费用统筹 ReActAgent（核心）
+│       │   ├── config/
+│       │   │   └── BudgetConfig.java      # 预算配置
+│       │   ├── tool/
+│       │   │   ├── CostEstimateTool.java  # 费用估算工具
+│       │   │   ├── BudgetCheckTool.java   # 预算检查工具
+│       │   │   └── CostBreakdownTool.java # 费用明细拆分工具
+│       │   └── service/
+│       │       ├── BudgetCalculationService.java  # 费用计算服务
+│       │       ├── CostModelService.java          # 费用模型（交通/住宿/餐饮/门票）
+│       │       └── BudgetAlertService.java        # 预算预警服务（≥15% 触发 HITL）
+│       └── test/
+│           └── java/com/smart_trip/trip/budget/
+│               ├── BudgetAgentTest.java
+│               ├── CostEstimateToolTest.java
+│               └── BudgetAlertServiceTest.java
+│
+├── smart-trip-skills/                    # 🎯 Skills 技能包（跨 Agent 共享）
+│   ├── pom.xml
+│   └── src/main/java/com/smart_trip/trip/skills/
+│       ├── Skill.java                     # Skill 接口（标准契约）
+│       ├── SkillRegistry.java             # Skill 注册中心
+│       ├── SkillLoader.java               # Skill 动态加载器
+│       ├── annotation/
+│       │   ├── SkillInfo.java             # Skill 元数据注解
+│       │   └── SkillParam.java            # Skill 参数注解
+│       ├── xhs/                           # 小红书相关 Skills
+│       │   ├── NoteAnalysisSkill.java     # 笔记分析 Skill
+│       │   ├── KeywordExtractionSkill.java # 关键词提取 Skill
+│       │   └── ContentSummarySkill.java   # 内容摘要 Skill
+│       ├── route/                         # 路线相关 Skills
+│       │   ├── RoutePlanningSkill.java    # 路线规划 Skill
+│       │   ├── TrafficOptimizationSkill.java  # 交通优化 Skill
+│       │   └── WeatherQuerySkill.java     # 天气查询 Skill（跨 Agent 复用）
+│       ├── itinerary/                     # 行程相关 Skills
+│       │   ├── ItineraryDesignSkill.java  # 行程编排 Skill
+│       │   ├── AttractionRankingSkill.java # 景点排序 Skill
+│       │   └── MealArrangementSkill.java  # 餐饮安排 Skill
+│       ├── budget/                        # 预算相关 Skills
+│       │   ├── BudgetCalculationSkill.java # 费用计算 Skill
+│       │   └── CostOptimizationSkill.java  # 费用优化 Skill
+│       └── common/                        # 通用 Skills
+│           ├── PdfGenerationSkill.java    # PDF 生成 Skill
+│           ├── TableGenerationSkill.java  # 表格制作 Skill
+│           └── TranslationSkill.java      # 翻译 Skill
+│
+├── smart-trip-server/                    # 🌐 Spring Boot Web 服务
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/smart_trip/trip/server/
+│       │   ├── TripPlanApplication.java   # Spring Boot 启动类
+│       │   ├── config/
+│       │   │   ├── NacosConfig.java       # Nacos 注册中心配置
+│       │   │   ├── RedisConfig.java       # Redis 配置
+│       │   │   ├── AgentScopeConfig.java  # AgentScope Harness 配置
+│       │   │   ├── SandboxConfig.java     # 安全沙箱配置
+│       │   │   ├── RateLimiterConfig.java # 限频配置
+│       │   │   └── OpenTelemetryConfig.java # 链路追踪配置
+│       │   ├── controller/
+│       │   │   ├── TripPlanController.java    # 行程规划 API
+│       │   │   ├── AdminController.java       # 管理 API（Agent 状态/计划进度）
+│       │   │   └── HealthController.java      # 健康检查 API
+│       │   ├── service/
+│       │   │   ├── TripPlanFacadeService.java # 门面服务（协调所有 Agent）
+│       │   │   ├── SessionService.java        # 会话管理服务
+│       │   │   └── FeedbackService.java       # 用户反馈收集服务
+│       │   ├── interceptor/
+│       │   │   ├── TraceInterceptor.java      # TraceId 注入拦截器
+│       │   │   └── RateLimitInterceptor.java  # 限频拦截器
+│       │   └── advice/
+│       │       └── GlobalExceptionHandler.java # 全局异常处理
+│       ├── main/resources/
+│       │   ├── application.yml            # 主配置
+│       │   ├── application-dev.yml        # 开发环境配置
+│       │   ├── application-prod.yml       # 生产环境配置
+│       │   └── logback-spring.xml         # 日志配置（结构化 JSON）
+│       └── test/
+│           └── java/com/smart_trip/trip/server/
+│               ├── TripPlanControllerTest.java
+│               ├── TripPlanFacadeServiceTest.java
+│               └── ArchitectureConstraintsTest.java  # ArchUnit 约束测试
+│
+└── smart-trip-tests/                     # 🧪 端到端集成测试
+    ├── pom.xml
+    └── src/test/java/com/smart_trip/trip/tests/
+        ├── e2e/
+        │   ├── SimpleDayTripE2ETest.java      # E2E: 简单 1 日游
+        │   ├── MultiDayTripE2ETest.java       # E2E: 多日深度游
+        │   └── BudgetAlertE2ETest.java        # E2E: 超预算场景
+        ├── integration/
+        │   ├── AgentCollaborationIT.java      # Agent 协作集成测试
+        │   ├── A2ACommunicationIT.java        # A2A 通信集成测试
+        │   ├── SkillLoadingIT.java            # Skill 加载集成测试
+        │   └── PlanNotebookIT.java            # PlanNotebook 集成测试
+        └── architecture/
+            └── ArchitectureConstraints.java   # ArchUnit 架构约束（层间依赖检查）
+
+
+═══════════════════════════════════════════════════════════════
+第三部分：多 Agent 协同规划核心技术
+═══════════════════════════════════════════════════════════════
+
+四、5 个 Agent 角色设计与职责定义
+
+4.1  主管 Agent（SupervisorAgent）— PlanNotebook 任务分解 + A2A 委派 + 结果汇总
+4.2  小红书分析 Agent（XHSAnalysisAgent）— 笔记搜索→内容提取→情感分析→RAG 增强
+4.3  路线规划 Agent（RouteAgent）— 百度/高德 MCP → 距离计算 → 路线排序 → 交通优化
+4.4  行程编排 Agent（ItineraryAgent）— 景点推荐 → 时间槽分配 → 餐饮安排 → PDF 导出
+4.5  费用统筹 Agent（BudgetAgent）— 费用估算 → 预算检查 → 超支预警（≥15% 触发 HITL）
+
+五、主管 Agent 自主分解复杂任务
+
+5.1  三种调度模式自适应切换：Pipeline（简单）→ StateGraph（分支）→ PlanNotebook（复杂）
+5.2  PlanNotebook 自主规划机制：任务拆解 → 步骤生成 → 并行/串行调度
+5.3  Hook 拦截技术：关键节点人工介入（HITL）— 超预算/天数不匹配/评分过低
+5.4  子任务分发：A2A 协议 + Msg 不可变消息 + 超时重试 + 降级默认值
+5.5  结果汇总与冲突仲裁：多 Agent 产出物合并 → OutputQualityGate 质量门禁
+
+六、A2A 协议 + Nacos 服务注册与发现
+
+6.1  A2A（Agent-to-Agent）协议：消息格式（Protobuf）、同步/异步调用模式
+6.2  Nacos 注册中心：Agent 启动自动注册 → 健康检查 → 心跳保活
+6.3  主管 Agent 通过 AgentRegistry 动态获取可用子 Agent 列表
+6.4  MsgHub 消息总线：Agent 间一对多广播 + 点对点请求/响应
+6.5  MCP（Model Context Protocol）：百度/高德地图作为外部 MCP Server 接入
+6.6  Agent 下线处理：Nacos 健康检查失败 → 自动摘除 → 任务重新分发
+
+═══════════════════════════════════════════════════════════════
+第四部分：Skills 技能体系
+═══════════════════════════════════════════════════════════════
+
+七、Skills 设计与实现
+
+7.1  Skill 标准契约：Skill 接口 + @SkillInfo 元数据 + @SkillParam 参数
+7.2  Skill 专属能力工作流：每个 Skill 封装一个完整工作流（输入→处理→输出）
+7.3  Skill 注册与发现：SkillRegistry 全局注册 + SkillLoader 按需加载
+7.4  Agent 声明式挂载 Skills：Agent 配置文件声明所需 Skills 列表
+7.5  渐进式加载：ToolGroup 机制 — Agent 按需动态加载 Skill，避免一次性加载全部
+7.6  跨 Agent 复用 Skills：天气查询、PDF生成、表格制作等通用 Skill
+
+八、按 Agent 划分的 Skills 分配
+
+8.1  XHSAnalysisAgent 挂载：NoteAnalysisSkill / KeywordExtractionSkill / ContentSummarySkill
+8.2  RouteAgent 挂载：RoutePlanningSkill / TrafficOptimizationSkill / WeatherQuerySkill
+8.3  ItineraryAgent 挂载：ItineraryDesignSkill / AttractionRankingSkill / MealArrangementSkill / PdfGenerationSkill
+8.4  BudgetAgent 挂载：BudgetCalculationSkill / CostOptimizationSkill / TableGenerationSkill
+8.5  SupervisorAgent 挂载：PlanNotebook（内置）+ Hook 拦截器（自定义）
+
+
+═══════════════════════════════════════════════════════════════
+第五部分：实施路线图
+═══════════════════════════════════════════════════════════════
+
+九、分阶段交付计划
+
+Phase 0 — 项目初始化（当前阶段）
+  里程碑: Maven 多模块可编译 + Docker 基础设施可启动 + SDD 规范体系建立
+  交付物:
+    ✅ 根 POM + 9 个子模块 pom.xml
+    ✅ Docker Compose（Nacos + Redis）
+    ✅ specs/ 全部规范文档
+    ✅ .claude/ 全部配置
+    ⬜ Checkstyle + PMD + EditorConfig 就绪
+    ⬜ smart-trip-common 公共模块（model/dto/exception/util）
+
+Phase 1 — 基础设施
+  里程碑: Agent 通信框架就绪 + 约束体系自动化
+  交付物:
+    ⬜ ArchUnit 架构约束测试
+    ⬜ A2A 通信层 + Nacos 注册
+    ⬜ AgentScope Harness 集成
+    ⬜ Guava RateLimiter 限频
+    ⬜ 安全沙箱配置
+    ⬜ Redis + ReMe 记忆管理
+
+Phase 2 — MVP（最小可行产品）
+  里程碑: 5 个 Agent + 核心 Skills 可协作完成一条完整旅游规划
+  交付物:
+    ⬜ 5 个 Agent 核心逻辑（ReAct + ReActAgent）
+    ⬜ 核心 Skills（≥10 个）
+    ⬜ 3 种调度模式（Pipeline/StateGraph/PlanNotebook）
+    ⬜ OutputQualityGate 质量门禁
+    ⬜ smart-trip-server REST API
+    ⬜ E2E 测试 ≥ 3 个典型场景
+
+Phase 3 — 协作增强
+  里程碑: 自主决策能力完善 + 用户体验优化
+  交付物:
+    ⬜ PlanNotebook 断点续传
+    ⬜ HITL 人工介入完善
+    ⬜ PDF 导出 + 表格汇总
+    ⬜ 用户反馈闭环（ReMe 长期记忆更新）
+
+Phase 4 — 完善与上线
+  里程碑: 生产级可观测性 + 性能优化
+  交付物:
+    ⬜ OpenTelemetry 全链路追踪
+    ⬜ AgentScope Studio 可视化调试
+    ⬜ 性能优化（缓存策略 + 并行调用）
+    ⬜ 技术债清理 + 文档完善
+
+
+═══════════════════════════════════════════════════════════════
+第六部分：关键约束与规范速查
+═══════════════════════════════════════════════════════════════
+
+十、不可协商的技术铁律
+
+  组件	        版本	        选型理由
+  ─────────────────────────────────────────────
+  JDK	        21 LTS	        AgentScope 最低要求
+  Spring Boot	  3.5.x	        AgentScope 集成基准
+  AgentScope	  2.0.0+	      Harness Framework
+  Maven	        3.9+	        多模块构建
+  LLM	          qwen3-max	    DashScope 原生集成
+  Nacos	        3.1.0	        A2A 服务发现
+  Redis	        7.x	          ReMe 短期记忆
+
+十一、API 限频与安全约束
+
+  API	          限频	          超时	  重试	  降级
+  ────────────────────────────────────────────────────
+  小红书	       ≤ 10 req/min	  30s	    3次	  返回缓存数据
+  百度/高德地图	≤ 30 req/min	  30s	    3次	  使用离线估算
+  通义千问	      ≤ 60 req/min	  30s	    3次	  返回默认模板
+
+十二、Agent 协作约束
+
+  约束	            规则
+  ──────────────────────────────────────
+  调用链深度	        ≤ 5 层（防死锁）
+  最大推理步数	      20 步（PlanNotebook）
+  最大子任务数	      10 个
+  最大执行时间	      300s
+  Agent 核心逻辑覆盖率	≥ 80%
+  文件长度	          ≤ 500 行
+  方法长度	          ≤ 50 行
+  圈复杂度	          ≤ 10
+
+十三、Claude Code 协作命令
+
+  /spec <feature>     SDD 阶段1: 编写功能规范 → spec.md
+  /plan <feature>     SDD 阶段2: 编写技术方案 → design.md
+  /tasks <feature>    SDD 阶段3: 拆解任务清单 → tasks.md
+  /implement          SDD 阶段4: 按清单逐项实现 + Ω 自审计
+  /review             7 维度代码审查（完整性/边界/规范/架构/质量/安全/测试）
+
+═══════════════════════════════════════════════════════════════
+第七部分：关键术语表
+═══════════════════════════════════════════════════════════════
+
+  术语	          英文	                    定义
+  ──────────────────────────────────────────────────────────
+  A2A	          Agent-to-Agent	          Agent 间通信协议
+  ReAct	        Reasoning + Acting	      推理-行动循环模式
+  PlanNotebook	PlanNotebook	            AgentScope 内置任务自主规划组件
+  Msg	          Message	                  AgentScope 不可变消息对象
+  ReMe	          Retrieval Memory	        双层记忆管理（短期 Redis + 长期向量DB）
+  MCP	          Model Context Protocol	  模型上下文协议（外部工具接入）
+  Skill	        Skill	                    Agent 的模块化可复用能力包
+  Tool	          Tool	                    LLM 可调用的函数/API 封装
+  HITL	          Human-in-the-Loop	       人工介入确认点
+  SDD	          Specification-Driven Dev	规范驱动开发（四阶段工作流）
+  Harness	      Harness Engineering	     约束工程（人类设计约束→AI写代码→机器验证）
+  ADR	          Architecture Decision	    架构决策记录
+  ACR	          Acceptance Criteria	    验收标准（可测试）

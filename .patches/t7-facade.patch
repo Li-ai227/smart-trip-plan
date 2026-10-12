@@ -1,0 +1,60 @@
+
+--- a/TripPlanFacade.java
++++ b/TripPlanFacade.java
+@@ -25,6 +25,7 @@
+ import com.huazai.trip.skills.persistence.PlanHistoryQuery;
+ import com.huazai.trip.skills.persistence.TripPlanPersistenceService;
++import com.huazai.trip.skills.supervisor.PlanDraftPause;
+ import com.huazai.trip.skills.supervisor.TripPlanResult;
+ import java.math.BigDecimal;
+ import java.nio.charset.StandardCharsets;
+@@ -57,6 +58,7 @@
+     private static final String STATUS_ANALYZING = PlanStatus.ANALYZING.name().toLowerCase(Locale.ROOT);
+     private static final String STATUS_PLANNING = PlanStatus.PLANNING.name().toLowerCase(Locale.ROOT);
++    private static final String STATUS_PLAN_REVIEW = PlanStatus.PLAN_REVIEW.name().toLowerCase(Locale.ROOT);
+     private static final String STATUS_REVIEW = PlanStatus.REVIEW.name().toLowerCase(Locale.ROOT);
+     private static final String STATUS_CONFIRMED = PlanStatus.CONFIRMED.name().toLowerCase(Locale.ROOT);
+     private static final String STATUS_FAILED = PlanStatus.FAILED.name().toLowerCase(Locale.ROOT);
+@@ -72,6 +74,7 @@
+     private final TripPlanPersistenceService tripPlanPersistenceService;
+     private final PlanIdSequenceService planIdSequenceService;
+     private final PlanSummaryUpdater summaryUpdater;
++    private final PlanModeFacadeHelper planModeHelper;
+
+     /** 简化构造（使用默认 commonPool，无记忆清除 / 历史持久化，planId 序列号退化纯内存）。 */
+     public TripPlanFacade(PlanCacheService planCacheService,
+@@ -111,6 +114,7 @@
+         this.planIdSequenceService = planIdSequenceService;
+         this.summaryUpdater = new PlanSummaryUpdater(planCacheService, objectMapper);
++        this.planModeHelper = new PlanModeFacadeHelper(planCacheService, supervisorAgent,
++                objectMapper, agentMetrics, tripPlanPersistenceService, summaryUpdater);
+     }
+
+     /**
+@@ -175,7 +179,7 @@
+     /** HITL 人工介入：CONFIRM/MODIFY/REJECT 三动作状态机（AC-9），仅 review 态可操作。 */
+     public Map<String, Object> intervene(String planId, String action, Integer dayIndex,
+                                          Map<String, Object> changes, long userId) {
+-        if (action == null || !VALID_ACTIONS.contains(action)) {
++        if (action == null || !VALID_ACTIONS.contains(action)) {
+             throw new InvalidRequestException("action 必须是 CONFIRM/MODIFY/REJECT 之一: " + action);
+         }
+         checkOwnership(planId, userId);
+@@ -183,13 +187,17 @@
+         String currentStatus = String.valueOf(detail.get("status"));
+         if (!STATUS_REVIEW.equals(currentStatus)) {
+             throw new InvalidRequestException(
+-                    "仅 review 态可执行 intervene，当前状态: " + currentStatus);
++                    "仅 review/plan_review 态可执行 intervene，当前状态: " + currentStatus);
+         }
+
+         String newStatus = switch (action) {
+@@ -304,8 +312,9 @@
+             Msg result = supervisorAgent.receive(assign);
+
+             if (result.type() == MessageType.TASK_RESULT) {
+                 Object resultObj = result.payload().get(Msg.KEY_RESULT);
+-                boolean requiresHITL = resultObj instanceof TripPlanResult tpr && tpr.requiresHITL();
++                if (planModeHelper.handlePlanPause(planId, resultObj, traceId)) return;
++                boolean requiresHITL = resultObj instanceof TripPlanResult tpr && tpr.requiresHITL();
+                 String status = requiresHITL ? STATUS_REVIEW : STATUS_CONFIRMED;

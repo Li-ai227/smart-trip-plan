@@ -1,0 +1,42 @@
+# smart-trip-server 基础配置（C-003）
+# 密钥一律来自环境变量/配置中心，禁止在任何配置文件硬编码（编码规范 §7）。
+spring:
+  application:
+    name: smart-trip-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+# 管理端点：对齐 接口协议.md §1.5/§6（health/info/metrics/prometheus）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    redis:
+      enabled: true
+
+# 应用自定义配置（连接参数可经环境变量覆盖，AC-3）
+trip:
+  nacos:
+    # Nacos 仅就位（A2A 注册逻辑归 C-005）
+    server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+    connect-timeout-millis: 1000
+  nacos-health:
+    enabled: true
+  env:
+    validation:
+      enabled: true
+  # C-010 审计追踪数据库（MySQL）
+  trace:
+    datasource:
+      host: ${TRACE_DB_HOST:127.0.0.1}
+      port: ${TRACE_DB_PORT:3306}
+      database: ${TRACE_DB_NAME:smart_trip_plan_trace}
+      username: ${TRACE_DB_USERNAME:root}
+      password: ${TRACE_DB_PASSWORD:}
+      pool-size: ${TRACE_DB_POOL_SIZE:4}

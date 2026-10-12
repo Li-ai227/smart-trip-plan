@@ -1,0 +1,53 @@
+name: E2E Test Suite (C-012)
+
+on:
+  push:
+    branches: [ main, develop, "feat/**", "fix/**" ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build (skip tests on upstream modules)
+        run: mvn install -pl smart-trip-common,smart-trip-skills,smart-trip-agent-supervisor,smart-trip-agent-xhs,smart-trip-agent-route,smart-trip-agent-itinerary,smart-trip-agent-budget,smart-trip-server -DskipTests -B -q
+
+      - name: Run E2E Tests
+        run: |
+          mvn test \
+            -pl smart-trip-tests \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -B \
+            --no-transfer-progress
+        timeout-minutes: 10
+
+      - name: Upload Surefire Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: smart-trip-tests/target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload JaCoCo Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: smart-trip-tests/target/site/jacoco/
+          retention-days: 7

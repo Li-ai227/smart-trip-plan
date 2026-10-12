@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.smart.trip</groupId>
+        <artifactId>smart-trip-plan</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>smart-trip-tests</artifactId>
+    <packaging>jar</packaging>
+    <name>smart-trip-tests</name>
+    <description>E2E + 集成 + ArchUnit 架构约束测试（位于依赖链末端，可依赖全部模块，仅测试作用域）。</description>
+
+    <!-- 依赖方向：tests 处于末端，可依赖全部模块。经 server 传递获得 common/skills/agents。 -->
+    <dependencies>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-server</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 测试栈版本由 spring-boot-dependencies 统一管理（含 JUnit 5），此处不写版本号 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- ArchUnit：机械化守护 工程结构.md §3 架构铁律 R1~R6（C-002 AC-3），仅测试作用域 -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Awaitility：异步轮询断言（C-012 要素三）-->
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- H2：E2E 认证链路内存数据库（trip_user 表，替代 MySQL；版本由 spring-boot-dependencies 管理）-->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- embedded-redis：E2E 数据隔离（C-012 要素四）-->
+        <dependency>
+            <groupId>it.ozimov</groupId>
+            <artifactId>embedded-redis</artifactId>
+            <version>0.7.3</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Agent 模块：E2E 直接装配真实 Agent（不经 WireMock），CI 不联网 -->
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-xhs</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-route</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-itinerary</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-budget</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+              ArchUnit 约束类命名为 *Constraints（与 unit-test-ci SKILL 的
+              `-Dtest=ArchitectureConstraints` 调用对齐），需显式加入 surefire 包含模式，
+              否则不匹配默认 *Test/*Tests 而被跳过。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*Constraints.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

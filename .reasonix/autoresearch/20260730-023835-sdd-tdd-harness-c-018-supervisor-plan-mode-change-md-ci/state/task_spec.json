@@ -1,0 +1,25 @@
+{
+  "task_id": "20260730-023835-sdd-tdd-harness-c-018-supervisor-plan-mode-change-md-ci",
+  "goal": "请严格按照项目里当前的 SDD + TDD + Harness 开发规范，基于 `C-018-supervisor-plan-mode` change.md 完成评审、CI、验证收口和 wiki 同步。\n⚠️ E2E 验证重点：planMode=true 完整闭环（提交 → 草案 → 人工确认 → 异步执行 → 结果），确认/拒绝/错误三种路径均需验证。\n请继续完成剩余同步wiki任务",
+  "scope": null,
+  "non_goals": null,
+  "allowed_operations": {
+    "write": true,
+    "network": false,
+    "publish": false
+  },
+  "success_criteria": [
+    {
+      "id": "objective_evidence",
+      "description": "The goal outcome is supported by direct evidence, such as inspected code, reproduced behavior, source material, or concrete findings.",
+      "required": true,
+      "evidence_ids": null
+    },
+    {
+      "id": "verification",
+      "description": "The result has relevant verification evidence, such as tests, commands, benchmarks, manual checks, or a documented reason why verification is not applicable.",
+      "required": true,
+      "evidence_ids": null
+    }
+  ]
+}

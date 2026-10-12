@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能旅游规划 · 前端效果图（小红书风格）</title>
+<style>
+  :root{
+    --red:#FF2442; --red-soft:#FFE9ED; --bg:#f4f4f5; --card:#fff;
+    --ink:#2b2b2b; --sub:#9a9a9a; --line:#efeff1; --ok:#16c784; --warn:#ff8a00;
+    --shadow:0 4px 16px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",Helvetica,sans-serif;
+    background:var(--bg);color:var(--ink);padding:32px 20px 60px}
+  .page-head{max-width:1280px;margin:0 auto 28px}
+  .page-head h1{font-size:24px;font-weight:800}
+  .page-head h1 .dot{color:var(--red)}
+  .page-head p{color:var(--sub);font-size:13px;margin-top:6px;line-height:1.7}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:#666}
+  .legend span{background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 12px}
+  .legend b{color:var(--red)}
+
+  .wall{max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;gap:30px 26px;justify-content:flex-start}
+  .module{width:330px}
+  .mhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .mhead .num{background:var(--red);color:#fff;font-size:12px;font-weight:700;
+    width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+  .mhead .t{font-size:15px;font-weight:700}
+  .mhead .api{margin-left:auto;font-size:11px;color:#b06;background:var(--red-soft);
+    border-radius:6px;padding:3px 7px;font-family:ui-monospace,Menlo,monospace}
+
+  /* phone frame */
+  .phone{background:var(--card);border-radius:30px;box-shadow:var(--shadow);
+    overflow:hidden;border:1px solid #ececec;height:660px;display:flex;flex-direction:column}
+  .statusbar{height:34px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;font-size:12px;font-weight:600;color:#000}
+  .statusbar .dots{letter-spacing:2px}
+  .screen{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+  .scroll{position:absolute;inset:0;overflow:auto}
+
+  /* topbar (search) */
+  .topbar{background:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+  .search{flex:1;background:#f4f4f5;border-radius:18px;height:34px;display:flex;align-items:center;
+    padding:0 14px;color:var(--sub);font-size:13px}
+  .search::before{content:"🔍";margin-right:7px;font-size:12px}
+  .tabs{display:flex;gap:16px;padding:6px 14px 12px;background:#fff;font-size:14px;color:#888;border-bottom:1px solid var(--line)}
+  .tabs .on{color:var(--ink);font-weight:700;position:relative}
+  .tabs .on::after{content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:-7px;width:18px;height:3px;background:var(--red);border-radius:2px}
+
+  /* bottom tab bar */
+  .tabbar{height:54px;background:#fff;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;font-size:11px;color:#bbb}
+  .tabbar .it{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .tabbar .it.on{color:var(--ink)}
+  .tabbar .ic{font-size:18px}
+  .tabbar .plus{background:var(--red);color:#fff;width:42px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:300}
+
+  /* generic bits */
+  .pad{padding:14px}
+  .card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .h2{font-size:17px;font-weight:800;margin-bottom:3px}
+  .muted{color:var(--sub);font-size:12px}
+  .pill{display:inline-block;background:#f4f4f5;color:#555;border-radius:14px;padding:5px 11px;font-size:12px;margin:4px 6px 0 0}
+  .pill.red{background:var(--red-soft);color:var(--red);font-weight:600}
+  .pill.on{background:var(--red);color:#fff}
+  .field{margin-top:14px}
+  .field label{font-size:12px;color:#888;display:block;margin-bottom:6px}
+  .input{background:#f7f7f8;border-radius:10px;height:42px;display:flex;align-items:center;padding:0 13px;font-size:14px;font-weight:600;color:#333}
+  .row2{display:flex;gap:10px}.row2>*{flex:1}
+  .cta{background:var(--red);color:#fff;text-align:center;font-weight:700;font-size:15px;
+    border-radius:24px;height:46px;line-height:46px;margin:18px 0 6px;box-shadow:0 6px 14px rgba(255,36,66,.3)}
+  .cta.ghost{background:#fff;color:var(--red);border:1px solid var(--red);box-shadow:none}
+  .cta.gray{background:#f0f0f0;color:#888;box-shadow:none}
+
+  /* progress (agents) */
+  .agent{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .agent:last-child{border:0}
+  .badge{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .b-done{background:#e8faf1;color:var(--ok)} .b-run{background:var(--red-soft);color:var(--red)} .b-wait{background:#f1f1f1;color:#bbb}
+  .agent .nm{font-size:14px;font-weight:700} .agent .ds{font-size:12px;color:var(--sub)}
+  .agent .st{margin-left:auto;font-size:12px;font-weight:700}
+  .st.done{color:var(--ok)} .st.run{color:var(--red)} .st.wait{color:#ccc}
+  .bar{height:9px;background:#eee;border-radius:6px;overflow:hidden;margin-top:6px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#FF6a80,var(--red));border-radius:6px}
+  .spin{width:14px;height:14px;border:2px solid var(--red-soft);border-top-color:var(--red);border-radius:50%;display:inline-block;animation:sp 1s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* waterfall notes */
+  .falls{column-count:2;column-gap:9px;padding:12px}
+  .note{break-inside:avoid;background:#fff;border-radius:12px;overflow:hidden;margin-bottom:9px;box-shadow:0 1px 5px rgba(0,0,0,.05)}
+  .note .cover{height:0;background:linear-gradient(135deg,#ffd6dd,#ffe9b0);position:relative}
+  .note .cover.c1{padding-top:128%;background:linear-gradient(135deg,#ffc1cc,#ff8fa3)}
+  .note .cover.c2{padding-top:88%;background:linear-gradient(135deg,#c8e7ff,#a0c4ff)}
+  .note .cover.c3{padding-top:112%;background:linear-gradient(135deg,#d6f5d6,#9be59b)}
+  .note .cover.c4{padding-top:78%;background:linear-gradient(135deg,#ffe0b3,#ffb877)}
+  .note .cover .emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px}
+  .note .tx{padding:8px 9px 10px}
+  .note .ti{font-size:12.5px;line-height:1.45;font-weight:600;color:#333}
+  .note .ft{display:flex;align-items:center;gap:5px;margin-top:7px;font-size:11px;color:#999}
+  .note .av{width:16px;height:16px;border-radius:50%;background:#ddd}
+  .note .lk{margin-left:auto}
+  .tag-mention{font-size:10px;color:var(--red);background:var(--red-soft);border-radius:5px;padding:2px 5px;margin-top:6px;display:inline-block}
+
+  /* itinerary timeline */
+  .daytab{display:flex;gap:8px;padding:12px 14px 4px;overflow:auto}
+  .daytab .d{flex-shrink:0;font-size:12px;font-weight:700;color:#888;background:#fff;border-radius:14px;padding:7px 13px}
+  .daytab .d.on{background:var(--red);color:#fff}
+  .tl{position:relative;margin-left:8px;padding-left:18px;border-left:2px dashed #e3e3e3}
+  .stop{position:relative;margin-bottom:13px}
+  .stop::before{content:"";position:absolute;left:-25px;top:5px;width:11px;height:11px;border-radius:50%;background:var(--red);border:2px solid #fff;box-shadow:0 0 0 2px var(--red-soft)}
+  .stop .time{font-size:11px;color:var(--red);font-weight:700}
+  .spot{background:#fff;border-radius:12px;padding:10px 11px;margin-top:5px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .spot .nm{font-size:14px;font-weight:700}
+  .spot .meta{font-size:11px;color:#999;margin-top:3px}
+  .spot .meta .star{color:#ff9500;font-weight:700}
+  .transit{font-size:11px;color:#aaa;padding:3px 0 0 2px}
+  .fallback{font-size:10px;color:var(--warn);background:#fff6e9;border-radius:5px;padding:2px 6px;display:inline-block;margin-top:5px}
+
+  /* budget panel */
+  .bud .tot{display:flex;align-items:baseline;gap:8px}
+  .bud .big{font-size:26px;font-weight:800}
+  .bud .of{color:var(--sub);font-size:12px}
+  .bseg{display:flex;height:12px;border-radius:7px;overflow:hidden;margin:12px 0 10px}
+  .bseg i{display:block;height:100%}
+  .blegend{font-size:12px;color:#666;line-height:1.9}
+  .blegend .k{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:0}
+
+  /* HITL modal */
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end}
+  .sheet{background:#fff;width:100%;border-radius:22px 22px 0 0;padding:20px 18px 22px}
+  .sheet .ic{width:52px;height:52px;border-radius:16px;background:#fff6e9;color:var(--warn);font-size:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+  .sheet h3{text-align:center;font-size:17px;font-weight:800}
+  .sheet .sub{text-align:center;color:var(--sub);font-size:12.5px;margin:7px 0 14px;line-height:1.6}
+  .advise{background:#f7f7f8;border-radius:12px;padding:12px;font-size:13px;line-height:1.6}
+  .advise b{color:var(--ok)}
+
+  /* feedback / export */
+  .done-ic{width:64px;height:64px;border-radius:50%;background:#e8faf1;color:var(--ok);font-size:34px;display:flex;align-items:center;justify-content:center;margin:24px auto 12px}
+  .center{text-align:center}
+  .fbrow{display:flex;gap:14px;justify-content:center;margin:16px 0}
+  .fbbtn{flex:1;border:1px solid var(--line);border-radius:14px;padding:14px 0;text-align:center;font-size:22px}
+  .fbbtn.up{border-color:var(--red);background:var(--red-soft)}
+  .caption{font-size:11.5px;color:#888;line-height:1.6;margin-top:10px;padding:0 2px}
+  .caption b{color:#555}
+  .foot{max-width:1280px;margin:40px auto 0;color:#aaa;font-size:12px;text-align:center;line-height:1.8}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>智能旅游规划 <span class="dot">·</span> 前端效果图（小红书风格）</h1>
+  <p>小红书旅游规划多智能体系统 · 前端按模块拆分原型 ｜ 设计语言：品牌红 #FF2442 · 白底圆角卡片 · 瀑布流 · 标签胶囊<br>
+  ⚠️ 静态视觉稿（非真实数据/非可交互），用于对齐"最终效果与触发方式"。所有字段与状态均对齐 <code>.harness/wiki/接口协议.md</code> 与 <code>业务模型.md</code>。</p>
+  <div class="legend">
+    <span>主触发 <b>POST /api/v1/trip-plan</b></span>
+    <span>轮询 <b>GET /trip-plan/{planId}</b></span>
+    <span>人工介入 <b>POST /{planId}/intervene</b></span>
+    <span>反馈 <b>POST /{planId}/feedback</b></span>
+  </div>
+</div>
+
+<div class="wall">
+
+  <!-- ① 意图输入 -->
+  <div class="module">
+    <div class="mhead"><div class="num">1</div><div class="t">意图输入页</div><div class="api">POST /trip-plan</div></div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span class="dots">●●● 📶 🔋</span></div>
+      <div class="screen"><div class="scroll">
+        <div class="topbar"><div class="search">想去哪儿？云南 / 厦门 / 成都…</div></div>
+        <div class="pad">
+          <div class="h2">帮你规划一场<br>小红书同款旅行 ✈️</div>
+          <div class="muted">填一次意图，5 个 AI 管家帮你搞定</div>
+          <div class="card" style="margin-top:14px">
+            <div class="field"><label>目的地</label><div class="input">云南</div></div>
+            <div class="field row2">
+              <div><label>出发日期</label><div class="input">2026-07-01</div></div>
+              <div><label>天数</label><div class="input">5 天</div></div>
+            </div>
+            <div class="field row2">
+              <div><label>人数</label><div class="input">2 人</div></div>
+              <div><label>预算（元）</label><div class="input">8000</div></div>
+            </div>
+            <div class="field"><label>旅行风格</label>
+              <span class="pill">亲子</span><span class="pill on">情侣</span><span class="pill">独自</span><span class="pill">团建</span>
+            </div>
+            <div class="field"><label>偏好标签</label>
+              <span class="pill red">古镇 ×</span><span class="pill red">美食 ×</span><span class="pill red">小众 ×</span><span class="pill">+ 添加</span>
+            </div>
+          </div>
+          <div class="cta">开始规划 →</div>
+          <div class="caption">字段 <b>1:1 映射</b> request body：destination / startDate / days / headcount / budget / travelStyle / preferences。点击即触发主流程，跳转模块②。</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ② 规划进行中 -->
+  <div class="module">
+    <div class="mhead"><div class="num">2</div><div class="t">规划进行中</div><div class="api">GET /trip-plan/{id}</div></div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span class="dots">●●● 📶 🔋</span></div>
+      <div class="screen"><div class="scroll">
+        <div class="pad">
+          <div class="h2">正在规划中… <span class="spin"></span></div>
+          <div class="muted">云南 · 5 日 · 情侣 · ¥8,000</div>
+          <div class="card" style="margin-top:14px">
+            <div class="agent"><div class="badge b-done">📕</div><div><div class="nm">笔记分析</div><div class="ds">XHS 已读 32 篇小红书笔记</div></div><div class="st done">✓ 完成</div></div>
+            <div class="agent"><div class="badge b-done">🗺️</div><div><div class="nm">路线规划</div><div class="ds">Route 已排 8 个景点交通</div></div><div class="st done">✓ 完成</div></div>
+            <div class="agent"><div class="badge b-run">📅</div><div><div class="nm">行程编排</div><div class="ds">Itinerary 正在编排 Day3…</div></div><div class="st run">进行中</div></div>
+            <div class="agent"><div class="badge b-wait">💰</div><div><div class="nm">费用统筹</div><div class="ds">Budget 待开始</div></div><div class="st wait">等待</div></div>
+          </div>
+          <div class="card">
+            <div class="muted">预算预估</div>
+            <div class="bar"><i style="width:53%"></i></div>
+            <div class="muted" style="margin-top:7px">¥4,200 / ¥8,000 · 已耗时 00:41</div>
+          </div>
+          <div class="cta gray">取消规划</div>
+          <div class="caption">前端每 2~3s 轮询（或 SSE 订阅），读 <b>status</b> 字段：<code>analyzing→planning→assembling→budgeting</code>。进度节点 = 5 Agent 状态机的可视化，"让用户看见 AI 在干活"。</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ③ 小红书笔记溯源 -->
+  <div class="module">
+    <div class="mhead"><div class="num">3</div><div class="t">小红书笔记溯源</div><div class="api">XHSAnalysisAgent</div></div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span class="dots">●●● 📶 🔋</span></div>
+      <div class="screen"><div class="scroll">
+        <div class="topbar"><div class="search">云南 古镇 小众</div></div>
+        <div class="tabs"><span class="on">为你精选</span><span>大理</span><span>丽江</span><span>美食</span></div>
+        <div class="falls">
+          <div class="note"><div class="cover c1"><div class="emo">🏞️</div></div><div class="tx"><div class="ti">大理必去！洱海边这家民宿绝了</div><span class="tag-mention">提及·洱海</span><div class="ft"><span class="av"></span>旅行的鱼<span class="lk">❤ 3.2k</span></div></div></div>
+          <div class="note"><div class="cover c3"><div class="emo">🍜</div></div><div class="tx"><div class="ti">大理古城宝藏小吃地图</div><span class="tag-mention">提及·大理古城</span><div class="ft"><span class="av"></span>吃货阿May<span class="lk">❤ 1.8k</span></div></div></div>
+          <div class="note"><div class="cover c2"><div class="emo">⛰️</div></div><div class="tx"><div class="ti">玉龙雪山一日游超全攻略</div><span class="tag-mention">提及·玉龙雪山</span><div class="ft"><span class="av"></span>山野<span class="lk">❤ 5.6k</span></div></div></div>
+          <div class="note"><div class="cover c4"><div class="emo">🌅</div></div><div class="tx"><div class="ti">情侣去丽江，这样安排最浪漫</div><span class="tag-mention">情侣友好</span><div class="ft"><span class="av"></span>小鹿<span class="lk">❤ 2.1k</span></div></div></div>
+          <div class="note"><div class="cover c2"><div class="emo">🛶</div></div><div class="tx"><div class="ti">洱海骑行路线＋拍照机位</div><div class="ft"><span class="av"></span>阿橙<span class="lk">❤ 980</span></div></div></div>
+          <div class="note"><div class="cover c1"><div class="emo">🏮</div></div><div class="tx"><div class="ti">丽江古城夜景太美了</div><span class="tag-mention">提及·丽江古城</span><div class="ft"><span class="av"></span>夜行者<span class="lk">❤ 1.2k</span></div></div></div>
+        </div>
+        <div class="caption" style="padding:0 14px 14px">瀑布流展示 XHS Agent 分析过的笔记（XHSNote → 候选 Attraction）。<b>红色"提及"标签</b>=情感分析正向且提及景点，可点进溯源到具体推荐。</div>
+      </div></div>
+      <div class="tabbar">
+        <div class="it on"><span class="ic">🏠</span>首页</div>
+        <div class="it"><span class="ic">🧭</span>发现</div>
+        <div class="it"><span class="plus">+</span></div>
+        <div class="it"><span class="ic">💬</span>消息</div>
+        <div class="it"><span class="ic">👤</span>我的</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 行程结果页 -->
+  <div class="module">
+    <div class="mhead"><div class="num">4</div><div class="t">行程结果页</div><div class="api">status=review/confirmed</div></div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span class="dots">●●● 📶 🔋</span></div>
+      <div class="screen"><div class="scroll">
+        <div class="topbar" style="justify-content:space-between"><b style="font-size:16px">云南 5 日行程</b><span class="pill red" style="margin:0">草案待确认</span></div>
+        <div class="daytab"><div class="d on">Day1 大理</div><div class="d">Day2 丽江</div><div class="d">Day3 香格里拉</div><div class="d">Day4</div><div class="d">Day5</div></div>
+        <div class="pad" style="padding-top:6px">
+          <div class="tl">
+            <div class="stop"><div class="time">09:00</div>
+              <div class="spot"><div class="nm">大理古城</div><div class="meta"><span class="star">⭐4.7</span> · 游玩 2.5h · 门票 ¥0</div></div>
+              <div class="transit">↓ 🚗 15 min · 6.2 km</div></div>
+            <div class="stop"><div class="time">12:00</div>
+              <div class="spot"><div class="nm">人和园（午餐）</div><div class="meta">🍴 白族菜 · ¥80/人 · 距景点 1.2km</div></div></div>
+            <div class="stop"><div class="time">14:00</div>
+              <div class="spot"><div class="nm">洱海生态廊道</div><div class="meta"><span class="star">⭐4.5</span> · 骑行 3h · 门票 ¥0</div>
+              <span class="fallback">⚠ 路况离线估算，仅供参考</span></div>
+              <div class="transit">↓ 🚗 20 min · 8.0 km</div></div>
+            <div class="stop"><div class="time">19:00</div>
+              <div class="spot"><div class="nm">段记饵丝（晚餐）</div><div class="meta">🍴 地方小吃 · ¥120/人</div></div></div>
+          </div>
+          <div class="card" style="margin-top:6px">当日小计 <b style="float:right;color:var(--red)">¥1,450</b></div>
+          <div class="caption">按 <code>TripPlan→TripDay[]→Attraction/Meal/Route</code> 渲染：景点卡=评分/门票/时长，箭头=Route 距离/耗时/方式，餐厅=Meal。<b>fallback:true 的卡片明确标注降级</b>，不假装正常。</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ⑤ 预算面板 + HITL -->
+  <div class="module">
+    <div class="mhead"><div class="num">5</div><div class="t">预算面板 + 人工介入</div><div class="api">POST /{id}/intervene</div></div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span class="dots">●●● 📶 🔋</span></div>
+      <div class="screen">
+        <div class="scroll">
+          <div class="pad">
+            <div class="card bud">
+              <div class="muted">预算总览</div>
+              <div class="tot"><span class="big" style="color:var(--warn)">¥9,300</span><span class="of">/ ¥8,000 · 超 16.3%</span></div>
+              <div class="bseg">
+                <i style="width:26%;background:#5b8def"></i><i style="width:34%;background:#ff8a00"></i>
+                <i style="width:22%;background:var(--red)"></i><i style="width:18%;background:#16c784"></i>
+              </div>
+              <div class="blegend">
+                <span class="k" style="background:#5b8def"></span>交通 ¥2,400&nbsp;&nbsp;
+                <span class="k" style="background:#ff8a00"></span>住宿 ¥3,300<br>
+                <span class="k" style="background:var(--red)"></span>餐饮 ¥2,100&nbsp;&nbsp;
+                <span class="k" style="background:#16c784"></span>门票 ¥1,500
+              </div>
+            </div>
+            <div class="caption">右侧面板=<code>Budget.breakdown</code> 四类拆分（交通/住宿/餐饮/门票）。当 <b>requiresHumanIntervention=true</b> 时，压出底部确认弹窗 →</div>
+          </div>
+        </div>
+        <!-- HITL bottom sheet -->
+        <div class="scrim">
+          <div class="sheet">
+            <div class="ic">⚠️</div>
+            <h3>需要你确认</h3>
+            <div class="sub">预计费用 <b style="color:var(--warn)">¥9,300</b>，超出预算 <b>16.3%</b>（红线 ≥15%）</div>
+            <div class="advise">💡 建议：Day4 五星酒店 → 精品民宿，<b>可省 ¥1,500</b>，调整后约 ¥7,800（达标）</div>
+            <div class="cta">接受建议（CONFIRM）</div>
+            <div class="cta ghost">我来改（MODIFY）</div>
+            <div class="cta gray">拒绝，重新规划（REJECT）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 反馈与导出 -->
+  <div class="module">
+    <div class="mhead"><div class="num">6</div><div class="t">确认 · 导出 · 反馈</div><div class="api">POST /{id}/feedback</div></div>
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span class="dots">●●● 📶 🔋</span></div>
+      <div class="screen"><div class="scroll">
+        <div class="pad center">
+          <div class="done-ic">✓</div>
+          <div class="h2">行程已确认！</div>
+          <div class="muted">云南 5 日 · 情侣 · 共 ¥7,820（预算内）</div>
+          <div class="card" style="text-align:left;margin-top:16px">
+            <div style="font-size:13px;line-height:2">
+              📅 5 天 12 个景点 · 8 顿特色餐<br>
+              💰 总费用 ¥7,820 <span style="color:var(--ok)">省 ¥180</span><br>
+              ⭐ 平均景点评分 4.6 / 5.0
+            </div>
+          </div>
+          <div class="cta">📄 导出 PDF 行程单</div>
+          <div class="caption" style="text-align:left">PDF = PdfGenerationSkill 产物。</div>
+          <div class="card" style="margin-top:8px">
+            <div class="muted" style="text-align:left">这份行程满意吗？</div>
+            <div class="fbrow">
+              <div class="fbbtn up">👍<div style="font-size:11px;color:var(--red);margin-top:4px">满意</div></div>
+              <div class="fbbtn">👎<div style="font-size:11px;color:#999;margin-top:4px">一般</div></div>
+            </div>
+            <div class="caption" style="text-align:left">👍/👎 + 手动修改项 → 回流 <b>ReMe 长期记忆</b>，影响下次规划的个性化。</div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="foot">
+  智能旅游规划 smart-trip-plan · 前端原型（web-frontend / 建议变更 C-NNN-web-frontend）<br>
+  消费 smart-trip-server REST API，不直接调用 Agent（符合工程结构 R3 分层）· 详见《重构大纲》第 25 章
+</div>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn:*)",
+      "Bash(docker:*)",
+      "Bash(git:status)",
+      "Bash(git:diff)",
+      "Bash(git:log)",
+      "Bash(git:add)",
+      "Bash(git:commit)",
+      "Bash(java:*)",
+      "Read(*)",
+      "Write(**.java)",
+      "Write(**.md)",
+      "Write(**.xml)",
+      "Write(**.properties)",
+      "Write(**.yml)",
+      "Write(**.yaml)",
+      "Write(**.json)",
+      "Edit(**.java)",
+      "Edit(**.md)",
+      "Edit(**.xml)",
+      "Edit(**.yml)",
+      "Edit(**.properties)"
+    ],
+    "deny": [
+      "Bash(rm:-rf)",
+      "Bash(sudo:*)",
+      "Write(**/*.pem)",
+      "Write(**/*.key)",
+      "Write(**/.env)",
+      "Write(**/application-prod.yml)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precheck-change-approved.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Harness] 文件变更已记录，请确保关联的 spec 文档已更新。'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Harness] ⏹ 收口检查：本轮 task 是否已 commit（一任务一 commit，message 含 C-NNN）？关联 change.md 的 status 是否已更新到正确阶段？'"
+          }
+        ]
+      }
+    ]
+  }
+}

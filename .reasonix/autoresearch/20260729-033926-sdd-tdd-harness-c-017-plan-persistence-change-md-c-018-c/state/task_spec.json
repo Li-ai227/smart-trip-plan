@@ -1,0 +1,25 @@
+{
+  "task_id": "20260729-033926-sdd-tdd-harness-c-017-plan-persistence-change-md-c-018-c",
+  "goal": "请严格按照项目里当前的 SDD + TDD + Harness 开发规范，先结合上述融合方案帮我把 `C-017-plan-persistence` 分析清楚并落到标准 change.md 中，完成后提示审批。\n⚠️ 计划模式约束：当前计划模式（C-018）的工作流程为 `后端生成草案 → 前端暂停展示草案 → 用户 CONFIRM/REJECT → 确认后后端执行完整规划调度`。\nplan_review 态是真实暂停点，草案经 `PlanCacheService` 存 Redis，前端通过 `status === 'plan_review'` 判断展示草案面板。\nC-017 的持久化逻辑必须与此兼容：草案生成阶段（plan_review）不触发持久化写入，仅终态（CONFIRMED/FAILED）才写入 MySQL 业务表。",
+  "scope": null,
+  "non_goals": null,
+  "allowed_operations": {
+    "write": true,
+    "network": false,
+    "publish": false
+  },
+  "success_criteria": [
+    {
+      "id": "objective_evidence",
+      "description": "The goal outcome is supported by direct evidence, such as inspected code, reproduced behavior, source material, or concrete findings.",
+      "required": true,
+      "evidence_ids": null
+    },
+    {
+      "id": "verification",
+      "description": "The result has relevant verification evidence, such as tests, commands, benchmarks, manual checks, or a documented reason why verification is not applicable.",
+      "required": true,
+      "evidence_ids": null
+    }
+  ]
+}

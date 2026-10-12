@@ -1,0 +1,16 @@
+[
+  {
+    "fingerprint": "c-018-sdd-tdd-harness-6b5c6912",
+    "summary": "所有内容已确认。C-018 的 SDD + TDD + Harness 全流程收口在上一个会话中已完成，当前状态无变化。以下是完整证据审计：",
+    "first_seen_iteration": 1,
+    "last_seen_iteration": 1,
+    "count": 1
+  },
+  {
+    "fingerprint": "task-76337a94",
+    "summary": "## 最终验证总结",
+    "first_seen_iteration": 2,
+    "last_seen_iteration": 2,
+    "count": 1
+  }
+]

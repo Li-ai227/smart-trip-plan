@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.smart.trip</groupId>
+        <artifactId>smart-trip-plan</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>smart-trip-common</artifactId>
+    <packaging>jar</packaging>
+    <name>smart-trip-common</name>
+    <description>公共模块：model / dto / enums / exception / util / constant（最底层基座，禁止依赖任何业务模块）</description>
+
+    <!--
+      依赖方向铁律（ADR-002 / ArchUnit R4）：common 处于最底层，仅依赖 JDK 与基础库，不依赖任何业务模块。
+      下列均为基础库（非 ..agent../..skills../..server.. 业务模块，R4 合规），版本由根
+      spring-boot-dependencies BOM 统一管理（无版本号、非 SNAPSHOT），见 C-004 决策 D-3。
+    -->
+    <dependencies>
+        <!-- JSON 序列化（数据模型.md §4：值序列化用 JsonUtils（Jackson）；C-004 AC-5/AC-6 round-trip） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- java.time（LocalDate）ISO-8601 序列化支持（接口协议.md §5 时间用 ISO-8601） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <!-- Bean Validation 声明注解（C-004 AC-2 / 决策 D-2）；仅注解 API，校验运行时不在 common 引入 -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <!-- AgentScope core（C-005 增量 B AC-8 MsgAdapter）：仅用 Msg/MsgRole/ContentBlock；BOM 管理版本 -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-core</artifactId>
+        </dependency>
+
+        <!-- 测试栈（版本由根 spring-boot-dependencies 统一管理）；test 作用域不破坏 R4 依赖方向 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+              JaCoCo 覆盖率门禁首个激活样例（C-002 AC-4 / C-003）：
+              common 引入核心逻辑 CacheKeys 后激活 ≥80% 行覆盖；
+              排除纯常量类 CacheConstants 与 package-info（无可执行逻辑，AC-4 排除装配/常量类）。
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/CacheConstants.class</exclude>
+                        <exclude>**/package-info.class</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <properties>
+        <!-- 激活本模块 JaCoCo check：核心包非空，参与 ≥80% 门禁 -->
+        <jacoco.check.skip>false</jacoco.check.skip>
+    </properties>
+
+</project>

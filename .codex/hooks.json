@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Harness] 文件变更已记录，请确保关联的 spec 文档已更新。'"
+          }
+        ]
+      }
+    ]
+  }
+}

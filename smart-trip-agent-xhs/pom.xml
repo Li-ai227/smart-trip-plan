@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.smart.trip</groupId>
+        <artifactId>smart-trip-plan</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>smart-trip-agent-xhs</artifactId>
+    <packaging>jar</packaging>
+    <name>smart-trip-agent-xhs</name>
+    <description>XHSAnalysisAgent：小红书笔记检索与分析 + RAG（agent://xhs-analyst）。Agent 间仅通过 A2A 通信，禁止直接依赖其它 agent（R1）。</description>
+
+    <!-- 依赖方向：agent → common, skills（agentscope 经 skills 传递）。禁止依赖其它 smart-trip-agent-* 与 server。 -->
+    <dependencies>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-skills</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 测试栈（版本由根 spring-boot-dependencies 统一管理）；test 作用域不破坏 R1 依赖方向 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- JaCoCo 覆盖率门禁（C-002 AC-4）：Agent 核心决策逻辑参与 ≥80% 行覆盖；排除 package-info。 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/package-info.class</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <properties>
+        <!-- 激活本模块 JaCoCo check：XHSAnalysisAgent 核心逻辑非空，参与 ≥80% 门禁 -->
+        <jacoco.check.skip>false</jacoco.check.skip>
+    </properties>
+
+</project>

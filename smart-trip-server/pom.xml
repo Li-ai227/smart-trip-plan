@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.smart.trip</groupId>
+        <artifactId>smart-trip-plan</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>smart-trip-server</artifactId>
+    <packaging>jar</packaging>
+    <name>smart-trip-server</name>
+    <description>Spring Boot Web 服务：REST 入口 / Facade / 会话协调 / 结果装配。仅做入口与编排，不复制 Agent 业务规则（R6）。</description>
+
+    <!-- 依赖方向：server → common, skills, 全部 agent, spring。禁止被 agent/skills/common 反向依赖。 -->
+    <dependencies>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-skills</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-supervisor</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-xhs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-route</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-itinerary</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-agent-budget</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Spring Boot 版本由根 POM 的 spring-boot-dependencies 统一管理，此处不写版本号 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- Actuator：/actuator/health|info|metrics（C-003 AC-2/AC-5/NFR 可观测） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Redis 7.x 连接 + 原生 RedisHealthIndicator（C-003 AC-3/AC-5） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- Micrometer → Prometheus 指标（C-003 NFR 可观测：/actuator/prometheus） -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- C-011：Spring Security + JWT 认证 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- C-011：Security 测试支持 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- C-010：MySQL 审计追踪 — HikariCP 连接池 + MySQL 驱动 -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- C-011：ArchUnit R3/R6 分层合规守护 -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Spring Boot 可执行 JAR + mvn spring-boot:run 支持 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <configuration>
+                    <mainClass>com.smart.trip.server.TripPlanServerApplication</mainClass>
+                    <!--
+                      classifier=exec：不加此项 repackage 会覆盖主 jar 为 BOOT-INF 嵌套布局的可执行 fat jar，
+                      导致 smart-trip-tests 等下游模块把它当普通依赖引入时找不到 com.smart.trip.server.* 类
+                      （类被嵌套进 BOOT-INF/classes/ 而非 jar 根目录）。加 classifier 后主 artifact
+                      （smart-trip-server-0.1.0.jar）保持普通库布局，可执行 jar 另出为 -exec 后缀。
+                    -->
+                    <classifier>exec</classifier>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              JaCoCo 覆盖率门禁（C-002 AC-4 / C-003）：仅对可独立单测的核心逻辑计入 ≥80%
+              （NacosHealthIndicator 健康判定、EnvironmentValidator 校验逻辑）；
+              排除启动类/配置装配/网络探针实现/Spring 适配监听器等装配类（AC-4 允许排除）。
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/TripPlanServerApplication.class</exclude>
+                        <exclude>**/config/HealthConfig.class</exclude>
+                        <exclude>**/config/EnvironmentValidationListener.class</exclude>
+                        <exclude>**/config/A2aConfig.class</exclude>
+                        <exclude>**/health/SocketNacosProbe.class</exclude>
+                        <exclude>**/admin/AgentStatusView.class</exclude>
+                        <!-- C-010：TraceDataSourceConfig 为 Spring 装配类，无业务逻辑 -->
+                        <exclude>**/TraceDataSourceConfig.class</exclude>
+                        <!-- C-011：纯 Spring 装配类，无业务逻辑 -->
+                        <exclude>**/AuthDataSourceConfig*.class</exclude>
+                        <exclude>**/PlanConfig*.class</exclude>
+                        <exclude>**/SecurityConfig*.class</exclude>
+                        <exclude>**/package-info.class</exclude>
+                        <!-- C-011：纯 JDBC/Redis 数据访问层，无业务逻辑，需实际基础设施 -->
+                        <exclude>**/auth/repository/UserRepository.class</exclude>
+                        <exclude>**/auth/service/TokenCacheService.class</exclude>
+                        <exclude>**/auth/service/UserService.class</exclude>
+                        <exclude>**/plan/service/PlanCacheService.class</exclude>
+                        <!-- C-011：薄 Servlet 过滤器，无独立可测业务逻辑 -->
+                        <exclude>**/auth/filter/TraceIdFilter.class</exclude>
+                        <!-- C-015：配置层需 Redis/ReMe 基础设施，无独立可测业务逻辑 -->
+                        <exclude>**/config/RedisServicesAutoConfiguration*.class</exclude>
+                        <exclude>**/config/ReMeConfig.class</exclude>
+                        <exclude>**/config/DotenvApplicationInitializer.class</exclude>
+                        <!-- C-014：PDF 导出需真实文件系统，需实际基础设施 -->
+                        <exclude>**/plan/facade/PdfExportFacade.class</exclude>
+                        <!-- 标签模块需 Redis，无独立可测业务逻辑 -->
+                        <exclude>**/tag/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <properties>
+        <!-- 激活本模块 JaCoCo check：核心逻辑非空，参与 ≥80% 门禁 -->
+        <jacoco.check.skip>false</jacoco.check.skip>
+    </properties>
+
+</project>

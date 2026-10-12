@@ -1,0 +1,34 @@
+# 测试 profile（C-003 AC-6）：下游基础设施以替身/关闭替代，保证 CI 不强依赖外部容器。
+# - 排除 Redis 自动装配并关闭 redis 健康项，避免连接真实 Redis。
+# - 关闭真实 Nacos 探针（trip.nacos-health.enabled=false），健康检查不外联。
+# - 关闭环境变量 fail-fast，CI 无需真实密钥即可空跑启动并返回 /actuator/health=UP。
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
+management:
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    redis:
+      enabled: false
+
+trip:
+  nacos:
+    server-addr: 127.0.0.1:8848
+  nacos-health:
+    enabled: false
+  env:
+    validation:
+      enabled: false
+  # C-010：CI 测试环境不连 MySQL（trace 审计关闭，不阻塞 CI）
+  trace:
+    datasource:
+      enabled: false
+  # C-011：CI 测试环境不连 MySQL（用户认证关闭，不阻塞 CI）
+  auth:
+    datasource:
+      enabled: false

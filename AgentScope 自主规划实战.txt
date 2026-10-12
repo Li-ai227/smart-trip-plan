@@ -1,0 +1,49 @@
+AgentScope 自主规划实战
+
+
+一、多 Agent 协同规划
+
+1、小红书自主旅行规划的任务拆解
+2、路线规划专员子 Agent 角色 & 核心职责
+3、行程编排经理子 Agent 角色 & 核心职责
+4、费用统筹管家子 Agent 角色 & 核心职责
+5、智能汇总大管家 Agent 角色 & 核心职责
+
+
+二、AgentScope 自主旅游规划搭建
+
+1、基于 AgentScope 构建分布式 Agent 自主旅游规划架构设计
+2、基于 AgentScope 的基础框架搭建
+3、创建不同节点的 ReActAgent 
+4、主管 Agent 自主分解复杂任务
+4.1、自主分解任务关键技术：PlanNotebook
+4.2、子任务计划和执行中的拦截技术：Hook
+4.3、分发任务给相关子 Agent
+5、相关 Agent 注册到 Nacos & 封装成工具执行任务
+
+
+三、AgentScope 自主旅游规划 Skill 技能
+
+1、Sub-Agents 角色分工
+2、Skills 专属能力工作流&能力封装&加载机制
+3、Skills 文件结构标准 
+4、SpringAi 1.1.2 实现 Agent 装载 Skills
+
+
+四、AgentScope 自主旅游规划专属 SubAgents
+
+1、行政编排经理挂载 Skills
+2、有限预算内规划旅游的 Skills
+3、汇总表格制作 Skills
+4、Skills 实现 Agent 工具渐进式加载
+5、景点推荐 SubAgent 执行景点推荐任务
+
+
+五、AgentScope 自主旅游规划实现 MCP + A2A 
+
+1、基于 A2A 协议将 Agent 注册到 Nacos
+2、主管 Agent 基于 A2A 协议获取子 Agent 成员
+3、主管 Agent 基于 A2A 协议调动子 Agent 执行任务
+4、路线规划专员 Agent 挂载百度/高德地图 MCP
+5、主管 Agent 自主分发任务给相应子 Agent
+6、人工介入修改主管 Agent 制定计划

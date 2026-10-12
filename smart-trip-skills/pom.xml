@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.smart.trip</groupId>
+        <artifactId>smart-trip-plan</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>smart-trip-skills</artifactId>
+    <packaging>jar</packaging>
+    <name>smart-trip-skills</name>
+    <description>业务 Skills 技能包（Agent 运行时能力，跨 Agent 复用）。允许依赖 common 与 agentscope，禁止依赖任何 agent（R2）。</description>
+
+    <!-- 依赖方向：skills → common；可用 agentscope。禁止依赖任何 smart-trip-agent-* 模块。 -->
+    <dependencies>
+        <dependency>
+            <groupId>com.smart.trip</groupId>
+            <artifactId>smart-trip-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- agentscope 全家桶版本由根 POM 的 agentscope-bom 统一管理，此处不写版本号 -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-core</artifactId>
+        </dependency>
+        <!--
+          C-006 增量 C：AgentScope Harness 运行时（HarnessAgent，内部委托 ReActAgent）。
+          XHS 切片原生化的 Agent 入口；版本由 agentscope-bom 统一管理。
+        -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-harness</artifactId>
+        </dependency>
+        <!--
+          C-005 增量 B AC-11：AgentScope 标准 A2A 服务端（AgentScopeA2aServer + ConfigurableAgentCard
+          + 框架 AgentRegistry）。版本由 agentscope-bom 统一管理。
+        -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-a2a-server</artifactId>
+        </dependency>
+        <!--
+          C-015 T-1：AgentScope ReMe 长期记忆扩展（ReMeLongTermMemory / ReMeClient）。
+          仅 RC4 提供；版本由 agentscope-bom 统一管理。
+        -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-reme</artifactId>
+        </dependency>
+        <!--
+          Micrometer 指标埋点（C-005 AC-7 / 接口协议.md §6）：仅 micrometer-core，
+          Registry/Prometheus 暴露归 server 层；版本由根 spring-boot-dependencies BOM 统一管理。
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
+
+        <!--
+          PDF 导出（C-014 T-1 选型评审：Apache PDFBox 3.0.x）。
+          Apache 2.0 许可，依赖链极简（fontbox 传递），中文字体嵌入一等支持。
+          版本由根 POM pdfbox.version 统一管理。
+        -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+
+        <!-- 测试栈（版本由根 spring-boot-dependencies 统一管理）；test 作用域不破坏 R2 依赖方向 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+              JaCoCo 覆盖率门禁（C-002 AC-4 / C-005）：A2A 基座核心逻辑参与 ≥80% 行覆盖；
+              排除纯数据载体 record（无可执行分支）与 package-info（无逻辑），对齐 common/server 既有做法。
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/package-info.class</exclude>
+                        <exclude>**/CallResult.class</exclude>
+                        <exclude>**/AgentReply.class</exclude>
+                        <exclude>**/AgentRegistration.class</exclude>
+                        <exclude>**/QualityViolation.class</exclude>
+                        <!--
+                          C-006 增量 C：HarnessAgent 工厂涉及真实 qwen3-max/网络，单测不可离线覆盖；
+                          其确定性部分（不变量）已由 XHSAnalysisTools/XHSNoteAnalyzer 单测覆盖，
+                          原生链路经 env-gated 集成测试验证（无 key 自动 skip，不伪装覆盖）。
+                        -->
+                        <exclude>**/XHSHarnessAgentFactory.class</exclude>
+                        <!--
+                          C-005 增量 B AC-11：FrameworkRegistryBridge 为薄委托层（框架 AgentRegistry
+                          → delegate），核心逻辑测试由 FrameworkRegistryBridgeTest 覆盖。
+                        -->
+                        <exclude>**/FrameworkRegistryBridge.class</exclude>
+                        <!--
+                          C-007 增量 C：Route HarnessAgent 工厂同理（真实 LLM/网络），
+                          确定性部分已由 RoutePlanningTools/RoutePlanningService 单测覆盖。
+                        -->
+                        <exclude>**/RouteHarnessAgentFactory.class</exclude>
+                        <!--
+                          C-009 增量 B：Budget HarnessAgent 工厂同理（真实 LLM/网络），
+                          确定性部分已由 BudgetCalculationTools/BudgetCalculationService 单测覆盖。
+                        -->
+                        <exclude>**/BudgetHarnessAgentFactory.class</exclude>
+                        <!-- C-010：Supervisor HarnessAgent 工厂涉及真实 LLM/网络，对齐 C-006~C-009 排除模式 -->
+                        <exclude>**/SupervisorHarnessAgentFactory.class</exclude>
+                        <exclude>**/LlmModelFactory.class</exclude>
+                        <exclude>**/LlmModelFactory$ResolvedModels.class</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <properties>
+        <!-- 激活本模块 JaCoCo check：A2A 基座核心包非空，参与 ≥80% 门禁 -->
+        <jacoco.check.skip>false</jacoco.check.skip>
+    </properties>
+
+</project>
