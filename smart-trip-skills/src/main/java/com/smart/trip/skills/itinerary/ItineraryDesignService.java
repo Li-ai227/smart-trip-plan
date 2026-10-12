@@ -7,6 +7,7 @@ import com.smart.trip.common.model.GeoLocation;
 import com.smart.trip.common.model.Meal;
 import com.smart.trip.common.model.Route;
 import com.smart.trip.common.model.TripDay;
+import com.smart.trip.skills.route.HaversineUtils;
 import com.smart.trip.skills.route.RoutePlanResult;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -71,11 +72,15 @@ public final class ItineraryDesignService {
         }
         // ④ 逐日装配：景点→路线→餐饮→费用
         int mealFallbackCount = 0;
+        boolean hasRouteFallback = false;
         List<TripDay> days = new ArrayList<>(dayGroups.size());
         for (int i = 0; i < dayGroups.size(); i++) {
             DayAssembly da = assembleDay(dayGroups.get(i), i, request, routeMap);
             days.add(da.day);
             mealFallbackCount += da.mealFallbacks;
+            if (da.day.routes().stream().anyMatch(Route::fallback)) {
+                hasRouteFallback = true;
+            }
         }
 
         if (mealFallbackCount > 0) {
@@ -205,7 +210,7 @@ public final class ItineraryDesignService {
             }
             if (!lastDay.isEmpty()) {
                 Attraction prev = lastDay.get(lastDay.size() - 1);
-                Route r = routeMap.get(new RouteKey(prev.location(), a.location()));
+                Route r = findRouteIfExists(prev, a, routeMap);
                 if (r != null && r.durationMin() > TRANSIT_LIMIT_MINUTES) {
                     break;
                 }
@@ -239,7 +244,7 @@ public final class ItineraryDesignService {
             }
             if (!group.isEmpty()) {
                 Attraction prev = group.get(group.size() - 1);
-                Route r = routeMap.get(new RouteKey(prev.location(), a.location()));
+                Route r = findRouteIfExists(prev, a, routeMap);
                 if (r != null && r.durationMin() > TRANSIT_LIMIT_MINUTES) { // 交通超限拆分
                     break;
                 }
@@ -283,16 +288,113 @@ public final class ItineraryDesignService {
 
     private static List<Route> buildDayRoutes(List<Attraction> dayAttractions,
                                               Map<RouteKey, Route> routeMap) {
+        if (routeMap == null || routeMap.isEmpty()) {
+            return List.of();
+        }
         List<Route> routes = new ArrayList<>();
         for (int j = 0; j < dayAttractions.size() - 1; j++) {
-            Route r = routeMap.get(new RouteKey(
-                    dayAttractions.get(j).location(),
-                    dayAttractions.get(j + 1).location()));
+            Route r = findOrEstimateRoute(
+                    dayAttractions.get(j),
+                    dayAttractions.get(j + 1),
+                    routeMap);
             if (r != null) {
                 routes.add(r);
             }
         }
         return routes;
+    }
+
+    private static Route findRouteIfExists(Attraction from, Attraction to,
+                                           Map<RouteKey, Route> routeMap) {
+        if (from == null || to == null) {
+            return null;
+        }
+        if (from.location() != null && to.location() != null) {
+            Route exact = routeMap.get(new RouteKey(from.location(), to.location()));
+            if (exact != null) {
+                return exact;
+            }
+        }
+        for (Route r : routeMap.values()) {
+            if (matchesLocationOrName(r.from(), from) && matchesLocationOrName(r.to(), to)) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    private static Route findOrEstimateRoute(Attraction from, Attraction to,
+                                             Map<RouteKey, Route> routeMap) {
+        Route planned = findRouteIfExists(from, to, routeMap);
+        if (planned != null) {
+            return planned;
+        }
+        // 兜底离线估算：当该相邻对未被上游顺序规划时（例如打散重组），通过 Haversine 补全车程
+        GeoLocation fromLoc = resolveEffectiveLocation(from);
+        GeoLocation toLoc = resolveEffectiveLocation(to);
+        double distanceKm;
+        int durationMin;
+        if (isValidCoordinate(fromLoc) && isValidCoordinate(toLoc)) {
+            distanceKm = Math.round(HaversineUtils.distanceKm(fromLoc, toLoc) * 10.0) / 10.0;
+            durationMin = Math.max(10, HaversineUtils.estimateDurationMin(fromLoc, toLoc));
+        } else {
+            distanceKm = 5.0;
+            durationMin = 20;
+        }
+        return new Route(fromLoc, toLoc, distanceKm, durationMin, "驾车", true);
+    }
+
+    private static boolean matchesLocationOrName(GeoLocation loc, Attraction attr) {
+        if (loc == null || attr == null) {
+            return false;
+        }
+        if (attr.location() != null && loc.equals(attr.location())) {
+            return true;
+        }
+        if (matchesAddressOrName(loc.address(), attr)) {
+            return true;
+        }
+        return matchesCoordinates(loc, attr.location());
+    }
+
+    private static boolean matchesAddressOrName(String locAddr, Attraction attr) {
+        if (locAddr == null || locAddr.isBlank()) {
+            return false;
+        }
+        if (containsBothWays(locAddr, attr.name())) {
+            return true;
+        }
+        GeoLocation al = attr.location();
+        return al != null && containsBothWays(locAddr, al.address());
+    }
+
+    private static boolean containsBothWays(String s1, String s2) {
+        if (s1 == null || s2 == null || s1.isBlank() || s2.isBlank()) {
+            return false;
+        }
+        return s1.contains(s2) || s2.contains(s1);
+    }
+
+    private static boolean matchesCoordinates(GeoLocation l1, GeoLocation l2) {
+        if (isValidCoordinate(l1) && isValidCoordinate(l2)) {
+            return HaversineUtils.distanceKm(l1, l2) < 1.0;
+        }
+        return false;
+    }
+
+    private static GeoLocation resolveEffectiveLocation(Attraction attr) {
+        if (attr != null && attr.location() != null && isValidCoordinate(attr.location())) {
+            return attr.location();
+        }
+        String name = attr != null ? attr.name() : "";
+        return new GeoLocation(0.0, 0.0, name, "");
+    }
+
+    private static boolean isValidCoordinate(GeoLocation loc) {
+        if (loc == null || (loc.longitude() == 0.0 && loc.latitude() == 0.0)) {
+            return false;
+        }
+        return Math.abs(loc.longitude()) <= 180 && Math.abs(loc.latitude()) <= 90;
     }
 
     private static BigDecimal computeDailyCost(List<Attraction> attractions, List<Meal> meals) {

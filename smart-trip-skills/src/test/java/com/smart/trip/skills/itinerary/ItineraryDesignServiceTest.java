@@ -131,6 +131,39 @@ class ItineraryDesignServiceTest {
                     .mapToInt(d -> d.attractions().size()).sum();
             assertEquals(6, totalAttractions, "所有候选景点都应被分配");
         }
+
+        @Test
+        @DisplayName("坐标微小漂移或地址差异时，仍能模糊对齐路线，且缺失对通过 Haversine 补全")
+        void fuzzyAndHaversineRouteCompletion() {
+            GeoLocation loc1 = new GeoLocation(121.5000, 31.2400, "东方明珠塔", "上海");
+            GeoLocation loc2 = new GeoLocation(121.9600, 31.5100, "崇明东滩湿地", "上海");
+            GeoLocation loc3 = new GeoLocation(121.4600, 31.1900, "徐汇滨江", "上海");
+
+            Attraction a1 = attraction("SH001", "东方明珠塔", loc1, 4.5, 60);
+            Attraction a2 = attraction("SH002", "崇明东滩湿地", loc2, 4.5, 60);
+            Attraction a3 = attraction("SH003", "徐汇滨江", loc3, 4.5, 60);
+
+            GeoLocation rLoc1 = new GeoLocation(121.4998, 31.2396, "上海市浦东新区世纪大道1号", "上海");
+            GeoLocation rLoc2 = new GeoLocation(121.9631, 31.5172, "上海市崇明区东滩大道", "上海");
+            Route r12 = new Route(rLoc1, rLoc2, 45.0, 50, "驾车", false);
+
+            ItineraryDesignQuery query = new ItineraryDesignQuery(
+                    request(1), List.of(a1, a2, a3), routeResult(List.of(r12)));
+            ItineraryDesignResult result = service.design(query);
+
+            assertEquals(1, result.days().size());
+            TripDay day1 = result.days().get(0);
+            assertEquals(3, day1.attractions().size());
+            assertEquals(2, day1.routes().size(), "3个景点应生成 2 段路线");
+
+            Route firstRoute = day1.routes().get(0);
+            assertEquals(45.0, firstRoute.distanceKm());
+
+            Route secondRoute = day1.routes().get(1);
+            assertTrue(secondRoute.distanceKm() > 0);
+            assertTrue(secondRoute.durationMin() > 0);
+            assertTrue(secondRoute.fallback(), "补全的路线应标为 fallback");
+        }
     }
 
     // ── 强规则 ① 每日至少午晚餐 ──
