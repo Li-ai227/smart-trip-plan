@@ -118,7 +118,7 @@ C-006 交付物是**库类制品**：common `XHSNote` 契约 + skills `xhs-note-
 | 检查项 | 结果 |
 |--------|------|
 | 代码中密钥来源 | ✅ 全部 `System.getenv()` — `XHSHarnessAgentFactory.fromEnvironment()` |
-| `.env.example` 占位符 | ✅ 修后 `your-deepseek-api-key`（原 `sk-26b97e5ca9dc4332801c0f5a08f545e7` 已修复） |
+| `.env.example` 占位符 | ✅ 修后 `your-deepseek-api-key`（原已失效测试 key 已修复） |
 | 仓库密钥扫描 `grep -rP 'sk-[a-f0-9]{32}'` | ✅ 0 命中 |
 | `EnvironmentValidator.REQUIRED_KEYS` 含 `DEEPSEEK_API_KEY` | ✅ 启动期 fail-fast |
 | enforcer 无 SNAPSHOT | ✅ `RequireReleaseDeps passed`（全模块） |
