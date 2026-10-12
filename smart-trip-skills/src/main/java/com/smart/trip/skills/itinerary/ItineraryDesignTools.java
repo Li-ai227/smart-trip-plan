@@ -119,12 +119,17 @@ public final class ItineraryDesignTools {
 
     private ItineraryDesignQuery parseQuery(String requestJson, String attractionsJson,
                                             String routeResultJson) {
-        var request = JsonUtils.fromJson(requestJson,
-                com.smart.trip.common.dto.TripPlanRequest.class);
-        List<Attraction> attractions = enrichFromCatalog(AttractionJsonParser.parse(attractionsJson));
-        // LLM 截断兜底：若 ctx 有更完整的候选列表，以 Java typed artifact 为准
+        com.smart.trip.common.dto.TripPlanRequest request = null;
+        try {
+            request = JsonUtils.fromJson(requestJson, com.smart.trip.common.dto.TripPlanRequest.class);
+        } catch (Exception ignored) { }
         com.smart.trip.skills.supervisor.SupervisorNativeRunContext ctx =
                 com.smart.trip.skills.supervisor.SupervisorHarnessAgentFactory.activeRunContext();
+        if (request == null && ctx != null && ctx.request() != null) {
+            request = ctx.request();
+        }
+        List<Attraction> attractions = enrichFromCatalog(AttractionJsonParser.parse(attractionsJson));
+        // LLM 截断兜底：若 ctx 有更完整的候选列表，以 Java typed artifact 为准
         if (ctx != null && ctx.xhsResult() != null
                 && ctx.xhsResult().candidates().size() > attractions.size()) {
             LOG.log(System.Logger.Level.WARNING,

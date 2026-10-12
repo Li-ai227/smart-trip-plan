@@ -38,10 +38,22 @@ public final class SupervisorNativeRunContext {
 
     private final AtomicReference<String> planId = new AtomicReference<>();
     private final AtomicReference<ProgressListener> progressListener = new AtomicReference<>();
+    private final AtomicReference<com.smart.trip.common.dto.TripPlanRequest> request =
+            new AtomicReference<>();
 
     /** 设置方案 ID（由工厂在 run() 开始时传入）。 */
     void setPlanId(String id) {
         this.planId.set(id);
+    }
+
+    /** 设置规划请求（由工厂在 run() 开始时传入）。 */
+    public void setRequest(com.smart.trip.common.dto.TripPlanRequest req) {
+        this.request.set(req);
+    }
+
+    /** @return 原始规划请求，或 null */
+    public com.smart.trip.common.dto.TripPlanRequest request() {
+        return request.get();
     }
 
     /** 设置进度监听器（由工厂在 run() 开始时传入，可为 null 跳过推送）。 */

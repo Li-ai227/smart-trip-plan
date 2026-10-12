@@ -61,28 +61,47 @@ public final class BudgetCalculationTools {
             @ToolParam(name = "itinerary_result_json",
                     description = "行程编排结果 JSON 对象（含 days 列表，每项含 attractions/meals/routes/dailyCost）")
             String itineraryResultJson) {
-        TripPlanRequest request = JsonUtils.fromJson(requestJson, TripPlanRequest.class);
         com.smart.trip.skills.supervisor.SupervisorNativeRunContext ctx =
                 com.smart.trip.skills.supervisor.SupervisorHarnessAgentFactory.activeRunContext();
-        ItineraryDesignResult itinerary;
-        try {
-            itinerary = JsonUtils.fromJson(itineraryResultJson,
-                    ItineraryDesignResult.class);
-        } catch (IllegalArgumentException e) {
-            // LLM 可能传错/截断 JSON → 从 Java 侧已捕获的权威产物 fallback
-            if (ctx != null && ctx.itineraryResult() != null) {
-                LOG.log(System.Logger.Level.WARNING,
-                    "LLM 可能传错/截断行程编排结果 JSON → 从 Java 侧已捕获的权威产物 fallback {0}", ctx.itineraryResult());
-                itinerary = ctx.itineraryResult();
-            } else {
-                throw e;
-            }
-        }
+        TripPlanRequest request = resolveRequest(requestJson, ctx);
+        ItineraryDesignResult itinerary = resolveItinerary(itineraryResultJson, ctx);
         BudgetCalculationQuery query = new BudgetCalculationQuery(request, itinerary);
         BudgetCalculationResult result = service.calculate(query);
         lastResult.set(result);
         if (ctx != null) { ctx.setBudgetResult(result); }
         return toJson(result);
+    }
+
+    private static TripPlanRequest resolveRequest(String requestJson,
+            com.smart.trip.skills.supervisor.SupervisorNativeRunContext ctx) {
+        TripPlanRequest request = null;
+        try {
+            request = JsonUtils.fromJson(requestJson, TripPlanRequest.class);
+        } catch (Exception ignored) { }
+        if (request == null && ctx != null && ctx.request() != null) {
+            request = ctx.request();
+        }
+        return request;
+    }
+
+    private static ItineraryDesignResult resolveItinerary(String itineraryResultJson,
+            com.smart.trip.skills.supervisor.SupervisorNativeRunContext ctx) {
+        ItineraryDesignResult itinerary = null;
+        try {
+            itinerary = JsonUtils.fromJson(itineraryResultJson, ItineraryDesignResult.class);
+        } catch (Exception e) {
+            if (ctx != null && ctx.itineraryResult() != null) {
+                LOG.log(System.Logger.Level.WARNING,
+                    "LLM 可能传错/截断行程编排结果 JSON → 从 Java 侧已捕获的权威产物 fallback {0}", ctx.itineraryResult());
+                return ctx.itineraryResult();
+            }
+            throw new IllegalArgumentException("无法解析行程结果且上下文中无权威行程", e);
+        }
+        if ((itinerary == null || itinerary.days() == null || itinerary.days().isEmpty())
+                && ctx != null && ctx.itineraryResult() != null) {
+            return ctx.itineraryResult();
+        }
+        return itinerary;
     }
 
     /**

@@ -64,16 +64,15 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
             "你是智能旅游规划系统的主管 Agent（Supervisor），负责按固定顺序编排四个子 Agent。"
                     + "禁止使用 read_file/glob_files/grep_files 等文件工具——旅行规划不需要读取代码文件。"
                     + "禁止进入 Plan Mode。直接按以下顺序执行，不得跳过任何步骤：\n"
-                    + "① agent_spawn xhs-analyst — 必须调用 analyze_xhs_notes 工具分析目的地小红书笔记，获取候选景点（禁止直接返回文本）\n"
-                    + "② agent_spawn route-planner — 将第①步 analyze_xhs_notes 工具结果中的 candidates 字段（JSON 数组）"
-                    + "原样作为 attractions_json 参数传入，规划路线\n"
-                    + "③ agent_spawn itinerary-designer — 将第①步 analyze_xhs_notes 工具结果中的 candidates 字段作为 attractions_json、"
-                    + "第②步路线结果作为 route_result_json 参数传入，编排行程\n"
-                    + "④ agent_spawn budget-controller — 必须调用 calculate_budget 工具核算费用（禁止直接返回文本），传入第③步行程结果\n"
+                    + "① agent_spawn xhs-analyst — 发送任务调用 analyze_xhs_notes 工具分析目的地小红书笔记，获取候选景点（禁止直接返回文本）\n"
+                    + "② agent_spawn route-planner — 发送任务调用 plan_routes 工具规划路线。若无 candidates 详情，attractions_json 直接传 \"[]\"（系统在后台上下文自动注入 candidates）\n"
+                    + "③ agent_spawn itinerary-designer — 发送任务调用 design_itinerary 工具编排行程，传入 request_json，attractions_json 传 \"[]\"，route_result_json 传 \"\"\n"
+                    + "④ agent_spawn budget-controller — 必须调用 calculate_budget 工具核算费用（禁止直接返回文本），传入 request_json 与行程结果（若无传 \"\"）\n"
                     + "⑤ finalize_native_trip_plan — 收口，产出最终 TripPlanResult\n"
                     + "任一子 Agent 返回降级结果时继续下一步，不得中断。"
                     + "业务不变量由各子 Agent 工具强制，你仅负责传递上下文与收口。\n"
-                    + "【通信约束】各子 Agent 遵循极简通信协议，仅汇报一句话状态摘要，真实数据已由工具回写。你收到状态后无需展开分析，立即推进下一步。\n"
+                    + "【通信约束】各子 Agent 遵循极简通信协议，仅汇报一句话状态摘要，真实数据由后台工具上下文自动回写共享。你收到状态后无需展开分析，立即推进下一步。\n"
+                    + "【严禁】严禁调用 wait_async_results、task_list、task_output、task_cancel、memory_*、session_*、execute！全部子 Agent 均同步返回，禁止等待异步结果。\n"
                     + "【严禁】禁止在 native 路中主动调用 orchestrate_trip——该工具仅由系统在无 LLM key 或 native 完全失败时自动调用，"
                     + "主动调用会导致编排被重复执行两次，产生错误结果。\n"
                     + "【严禁】若四个子 Agent 已全部完成（artifact 齐全），只调用 finalize_native_trip_plan 收口，禁止再调 orchestrate_trip。\n"
@@ -200,7 +199,7 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
         }
         // 2~4. 组装 per-run artifact 容器 + 完整业务 Toolkit + HarnessAgent（提取自
         // resume() 复用，避免 PMD CPD 重复代码告警）
-        ExecutionAssembly assembly = assembleExecutionToolkit(query.planId());
+        ExecutionAssembly assembly = assembleExecutionToolkit(query.planId(), query.request());
         HarnessAgent.Builder builder = executionAgentBuilder(assembly.toolkit(), runWorkspace);
         try (HarnessAgent agent = builder.build()) {
             agent.call(buildPrompt(query), SupervisorPlanModeSupport.sessionContext(query)).block();
@@ -225,12 +224,15 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
      * 子 Agent 工具集 — 由 {@code toolFactory.createTools(runContext)} 创建的全部子 Agent @Tool 方法
      * 关键设计：RunContext 通过 {@link #activeRunContextRef} 暴露，供子 Agent 的 @Tool 方法回写 typed result，Toolkit 聚合所有工具，统一注册后供 Agent 调用，run 和 resume 共用此组装逻辑，保证工具集一致性
      * @param planId 计划 ID，用于标识本次执行的归属
+     * @param request 规划请求，用于子工具请求参数兜底
      * @return {@link ExecutionAssembly} 包含 runContext、orchestrationTools、toolkit 的组装结果
      */
-    private ExecutionAssembly assembleExecutionToolkit(String planId) {
+    private ExecutionAssembly assembleExecutionToolkit(String planId,
+            com.smart.trip.common.dto.TripPlanRequest request) {
         // 1. 创建本次执行的运行时上下文
         SupervisorNativeRunContext runContext = new SupervisorNativeRunContext();
         runContext.setPlanId(planId);
+        runContext.setRequest(request);
         runContext.setProgressListener(progressListener);
         activeRunContextRef.set(runContext); // 挂上，供子 Agent 的 @Tool 方法回写 typed result
         // 2. 创建子 Agent 工具集（由 toolFactory 统一生产）
@@ -251,9 +253,9 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
     /**
      * 构建执行态（固定路径 / 计划模式恢复）的 {@code HarnessAgent.Builder}。
      *
-     * <p>disableFilesystemTools()：框架层阻止 LLM 调用 read_file/glob_files/grep_files，
-     * 防止 LLM 读取源码文件浪费 66s 并跳过 XHS（C-012-fix 方案 C）。不调
-     * enableTaskList(true)：Plan Mode 是 LLM 迷失的根源，Supervisor 不需要计划模式。</p>
+     * <p>disableFilesystemTools() / disableShellTool() / disableMemoryTools()：
+     * 框架层阻止 LLM 调用 read_file/grep_files/execute/memory 等系统工具，
+     * 防止 LLM 偏离编排主链路。不调 enableTaskList(true)：Plan Mode 是 LLM 迷失的根源，Supervisor 不需要计划模式。</p>
      */
     private HarnessAgent.Builder executionAgentBuilder(Toolkit toolkit, Path runWorkspace) {
         HarnessAgent.Builder builder = HarnessAgent.builder()
@@ -263,7 +265,9 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
                 .toolkit(toolkit)
                 .skillRepository(skillRepository)
                 .workspace(runWorkspace)
-                .disableFilesystemTools();
+                .disableFilesystemTools()
+                .disableShellTool()
+                .disableMemoryTools();
         if (fallbackModel != null) {
             builder.fallbackModel(fallbackModel);
         }
@@ -282,6 +286,8 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
                 .skillRepository(skillRepository)
                 .workspace(runWorkspace)
                 .disableFilesystemTools()
+                .disableShellTool()
+                .disableMemoryTools()
                 .enablePlanMode();  // ← 框架注册 plan_write/plan_enter/plan_exit
         if (fallbackModel != null) {
             builder.fallbackModel(fallbackModel);
@@ -322,7 +328,7 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
         prepareSubagentWorkspace(runWorkspace);
 
         // 组装完整业务 Toolkit + HarnessAgent（复用 run() 的执行态组装逻辑）
-        ExecutionAssembly assembly = assembleExecutionToolkit(query.planId());
+        ExecutionAssembly assembly = assembleExecutionToolkit(query.planId(), query.request());
         HarnessAgent.Builder builder = executionAgentBuilder(assembly.toolkit(), runWorkspace);
         RuntimeContext ctx = SupervisorPlanModeSupport.sessionContext(query);
         try (HarnessAgent agent = builder.build()) {
@@ -478,13 +484,11 @@ public final class SupervisorHarnessAgentFactory implements SupervisorAgentRunne
         }
 
         String text = sb.toString()
-                + "严格按顺序执行以下步骤，禁止跳过，禁止读取文件：\n"
+                + "严格按顺序执行以下步骤，禁止跳过，禁止读取文件，禁止调用 wait_async_results：\n"
                 + "1. agent_spawn xhs-analyst — 必须调用 analyze_xhs_notes 工具分析目的地小红书笔记，获取候选景点\n"
-                + "2. agent_spawn route-planner — 将第 1 步 analyze_xhs_notes 工具结果中的 candidates 字段（JSON 数组）"
-                + "原样作为 attractions_json 参数传入，规划路线\n"
-                + "3. agent_spawn itinerary-designer — 将第 1 步 analyze_xhs_notes 工具结果中的 candidates 字段作为 attractions_json、"
-                + "第 2 步路线结果作为 route_result_json 参数传入，编排行程\n"
-                + "4. agent_spawn budget-controller — 必须调用 calculate_budget 工具核算费用，传入第 3 步行程结果\n"
+                + "2. agent_spawn route-planner — 调用 plan_routes 规划路线，若无具体 candidates 详情，attractions_json 直接传 \"[]\"（系统后台自动注入 candidates）\n"
+                + "3. agent_spawn itinerary-designer — 调用 design_itinerary 编排行程，传入 request_json，attractions_json 传 \"[]\"，route_result_json 传 \"\"\n"
+                + "4. agent_spawn budget-controller — 必须调用 calculate_budget 工具核算费用，传入 request_json，itinerary_result_json 传 \"\"\n"
                 + "5. finalize_native_trip_plan — 收口，产出最终 TripPlanResult\n"
                 + "各子 Agent 遵循极简通信仅回复一句话状态，任一步返回降级结果时继续下一步，最终确保产出完整行程方案。";
         return Msg.builder().role(MsgRole.USER).textContent(text).build();
