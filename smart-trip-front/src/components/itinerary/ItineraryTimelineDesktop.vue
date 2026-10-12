@@ -86,10 +86,11 @@ const entries = computed(() => calculateDynamicTimeline(activeDay.value))
             <!-- Fallback 提示 -->
             <span v-if="e.fallback" class="fallback-badge">⚠ 路况离线估算，仅供参考</span>
 
-            <!-- 交通信息 -->
+            <!-- 交通信息：前往下一站 -->
             <div v-if="e.transit" class="transit-info">
-              <span class="transit-icon">🚗</span>
-              <span>{{ e.transit.durationMinutes }}分钟 · {{ e.transit.distanceKm }}公里</span>
+              <span class="transit-icon">🚗 乘车前往下站：</span>
+              <span class="transit-highlight">{{ e.transit.durationMinutes }} 分钟</span>
+              <span class="transit-dist">（{{ e.transit.distanceKm }} 公里）</span>
             </div>
           </div>
         </div>

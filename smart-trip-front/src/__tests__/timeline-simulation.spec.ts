@@ -39,30 +39,35 @@ describe('calculateDynamicTimeline 真实时间链推演算法', () => {
 
     expect(entries.length).toBe(6) // 4景点 + 2正餐
 
-    // 1. 第1站：09:00 开始
+    // 1. 第1站：09:00 - 10:30 开始
     expect(entries[0].name).toBe('四行仓库纪念馆')
-    expect(entries[0].time).toBe('09:00')
+    expect(entries[0].arriveTime).toBe('09:00')
+    expect(entries[0].leaveTime).toBe('10:30')
+    expect(entries[0].time).toBe('09:00 - 10:30')
 
     // 四行仓库玩90分钟到 10:30，路上开车84分钟到 11:54
-    // 恰逢中午，插入午餐：11:54 或 12:00
+    // 恰逢中午，插入午餐：11:54 - 12:54
     const lunchEntry = entries.find((e) => e.kind === 'meal' && e.name.includes('午餐'))
     expect(lunchEntry).toBeDefined()
-    expect(lunchEntry!.time).toBe('11:54')
+    expect(lunchEntry!.arriveTime).toBe('11:54')
+    expect(lunchEntry!.leaveTime).toBe('12:54')
 
-    // 午餐 60 分钟后（12:54）到达朱家角
+    // 午餐 60 分钟后（12:54）到达朱家角，玩 180 分钟（3小时）到 15:54
     const zhujiajiao = entries.find((e) => e.name === '朱家角古镇')
     expect(zhujiajiao).toBeDefined()
-    expect(zhujiajiao!.time).toBe('12:54')
+    expect(zhujiajiao!.arriveTime).toBe('12:54')
+    expect(zhujiajiao!.leaveTime).toBe('15:54')
 
     // 朱家角玩 180 分钟（3小时）到 15:54，开车 80 分钟（1小时20分）到 17:14
     // 豫园到达时间绝对不能是 16:00，必须顺延到 17:14 之后！
     const yuyuan = entries.find((e) => e.name === '豫园')
     expect(yuyuan).toBeDefined()
-    expect(yuyuan!.time).toBe('17:14')
+    expect(yuyuan!.arriveTime).toBe('17:14')
+    expect(yuyuan!.leaveTime).toBe('18:44')
 
     // 检查所有节点时间单调非递减
     for (let i = 1; i < entries.length; i++) {
-      expect(entries[i].time >= entries[i - 1].time).toBe(true)
+      expect(entries[i].arriveTime >= entries[i - 1].leaveTime!).toBe(true)
     }
   })
 })
