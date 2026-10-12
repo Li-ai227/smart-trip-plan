@@ -19,53 +19,12 @@ const emit = defineEmits<{
 
 const store = useTripPlanStore()
 
-const ATTRACTION_TIMES = ['09:00', '14:00', '16:00', '17:30']
-const MEAL_TIMES: Record<string, string> = { '早': '08:00', '午': '12:00', '晚': '19:00' }
+import { calculateDynamicTimeline } from '@/utils/timeline'
 
 const activeDay = computed(() => props.days.find((d) => d.index === props.activeIndex) ?? props.days[0])
 
-// 时间轴节点：景点（spot）与餐饮（meal）合并后按时间排序
-interface Entry {
-  time: string
-  name: string
-  kind: 'spot' | 'meal'
-  rating?: number
-  durationH?: number
-  ticket?: number
-  mealMeta?: string
-  fallback: boolean
-  transit?: Route
-}
+const entries = computed(() => calculateDynamicTimeline(activeDay.value))
 
-const entries = computed<Entry[]>(() => {
-  const day = activeDay.value
-  if (!day) return []
-  const routes = day.routes
-  const outgoing = (name: string) => routes.find((r) => r.fromName === name)
-  const incomingFallback = (name: string) => routes.some((r) => r.toName === name && r.fallback)
-
-  const spots: Entry[] = day.attractions.map((a, i) => ({
-    time: ATTRACTION_TIMES[i] ?? '—',
-    name: a.name,
-    kind: 'spot',
-    rating: a.rating,
-    durationH: Math.round((a.durationMinutes / 60) * 10) / 10,
-    ticket: a.ticket,
-    fallback: incomingFallback(a.name),
-    transit: outgoing(a.name),
-  }))
-
-  const meals: Entry[] = day.meals.map((m) => ({
-    time: MEAL_TIMES[m.mealType] ?? '—',
-    name: m.name,
-    kind: 'meal',
-    mealMeta: `🍴 ${m.recommend ?? ''} · ¥${m.perCapita}/人${m.distanceKm ? ` · 距景点 ${m.distanceKm}km` : ''}`,
-    fallback: false,
-    transit: outgoing(m.name),
-  }))
-
-  return [...spots, ...meals].sort((a, b) => a.time.localeCompare(b.time))
-})
 </script>
 
 <template>
