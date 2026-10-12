@@ -80,6 +80,7 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
       const lunchArrive = currentClockMinutes
       const lunchLeave = lunchArrive + 60
       entries.push({
+        id: `meal-${lunch.mealType}`,
         time: `${formatMinutesToTime(lunchArrive)} - ${formatMinutesToTime(lunchLeave)}`,
         arriveTime: formatMinutesToTime(lunchArrive),
         leaveTime: formatMinutesToTime(lunchLeave),
@@ -120,6 +121,7 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
       const lunchArrive = currentClockMinutes
       const lunchLeave = lunchArrive + 60
       entries.push({
+        id: `meal-${lunch.mealType}`,
         time: `${formatMinutesToTime(lunchArrive)} - ${formatMinutesToTime(lunchLeave)}`,
         arriveTime: formatMinutesToTime(lunchArrive),
         leaveTime: formatMinutesToTime(lunchLeave),
@@ -143,6 +145,7 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
     const lunchArrive = Math.max(12 * 60, currentClockMinutes)
     const lunchLeave = lunchArrive + 60
     entries.push({
+      id: `meal-${lunch.mealType}`,
       time: `${formatMinutesToTime(lunchArrive)} - ${formatMinutesToTime(lunchLeave)}`,
       arriveTime: formatMinutesToTime(lunchArrive),
       leaveTime: formatMinutesToTime(lunchLeave),
@@ -160,6 +163,7 @@ export function calculateDynamicTimeline(day: TripDay | undefined): TimelineEntr
     const dinnerArrive = Math.max(18 * 60, currentClockMinutes)
     const dinnerLeave = dinnerArrive + 60
     entries.push({
+      id: `meal-${dinner.mealType}`,
       time: `${formatMinutesToTime(dinnerArrive)} - ${formatMinutesToTime(dinnerLeave)}`,
       arriveTime: formatMinutesToTime(dinnerArrive),
       leaveTime: formatMinutesToTime(dinnerLeave),
